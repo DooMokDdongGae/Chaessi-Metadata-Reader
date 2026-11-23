@@ -1,5 +1,9 @@
 # Chaessi Metadata Reader 1.0.0
 
+## Corrected build — 2026-11-23
+
+A single **Send to Preset** action sends the whole list. If no connection or destination is selected, it explains what to choose. New character numbers can have gaps or be selected in reverse order; the UI shows the actual destination character number. Preset previews any empty Off slots created in between, and Cancel/Undo also cover those slots. Use the corrected 2026-11-23 build of both apps. Version numbers and original Git tags are retained; see the public Release notes for the correction commit, build date and new SHA-256 checksums.
+
 The first Windows installer lets you bring image prompts from NovelAI Inspect’s Simplified view into Reader, edit them, and send text to the fields you choose in CHAESSI PRESET.
 
 | Component | Version and how to use it |

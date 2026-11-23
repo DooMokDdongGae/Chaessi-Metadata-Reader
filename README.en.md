@@ -71,10 +71,12 @@ The extension’s setup page is in Korean. The labels below match what appears t
 2. Pick an image under **Imported images**. Edit the Base or Character **Positive** or **Undesired** field. **Copy text** copies the current edit. **Show original text** displays the source, and **Restore original** resets an individual field.
 3. Highlight part of a field and choose **Add selection**, or choose **Add full text** for the whole field. Each item is a copy made at that moment. Add it again to capture a later edit.
 4. **Start the official `Chaessi-Preset-v3.8.5-x64.exe` Portable first.** In Reader, choose **Send to Preset → Connect to Preset**. Under **Running Presets**, choose the v3.8.5 window and **Connect to this Preset**. Check the displayed path and window when several are running. [Get CHAESSI PRESET v3.8.5](https://github.com/DooMokDdongGae/Chaessi-Preset/releases/tag/v3.8.5)
-5. Select a text item and its **Destination prompt field**. **Append** adds a comma and a space between two nonempty texts. **Replace** replaces the field’s contents. Choose **Review selected item** or **Review changes in Preset** for the whole list.
+5. Select a text item and its **Destination prompt field**. **Append** adds a comma and a space between two nonempty texts. **Replace** replaces the field’s contents. Assign every row a destination and choose **Send to Preset**. This sends the whole list from top to bottom. To send one item, remove the other items from the list; the originals and editor fields stay unchanged.
 6. In the **Preset window**, compare the current and final text, then apply or cancel. After applying, use Preset’s Undo to restore the previous edit. Applying changes the open draft. Sending does not save a preset, create a History entry, generate an image or call a paid API.
 
 A compatible folder-based build can be registered and started after you confirm its path. For the public v3.8.5 Portable, start it yourself each time and select its running window. Reader authenticates the receiver using the `chaessi.prompt-transfer/1` protocol. Older releases without a receiver cannot accept transfers. Switching windows keeps your text list and requires you to choose the destinations again.
+
+You can choose character numbers with gaps or in reverse order. With one existing character, sending to **Character 4 (new)** creates empty Off slots at positions 2 and 3. Review the creation range in Preset before applying. Cancel creates nothing; Undo removes the added slots together. Unrelated existing slots keep their contents. **Move up / Move down** changes the application order for text sent to the same field. Both apps need the **2026-11-23 corrected build** for this behavior.
 
 ## Troubleshooting, updates and removal
 

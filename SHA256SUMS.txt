@@ -1,2 +1,2 @@
-44ea98188f15681249089f019badc22e09015eb97bb337c1876f94128c298422  Chaessi-Metadata-Reader-Setup-x64.exe
+b4eecb536d17dbe744d71b8eac6aec9f659363156b7e1d9d8e21495e9bba09b9  Chaessi-Metadata-Reader-Setup-x64.exe
 d20da087dcb5d7d25676dfc6f21697c4b49c359dba560665fbcb0573f6e1e7d4  Chaessi-Metadata-Reader-Chrome-Extension.zip
