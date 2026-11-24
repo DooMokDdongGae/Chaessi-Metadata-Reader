@@ -1,5 +1,7 @@
 # Chaessi Metadata Reader 1.0.0
 
+[最新版のダウンロード](https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/latest) · [2026年11月23日のパッチ基準版](https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/tag/v1.0.0)
+
 [한국어](README.ko.md) · [English](README.en.md) · [リリースノート](RELEASE-NOTES.ja.md)
 
 NovelAI Inspect から画像のプロンプトを取り込み、編集した文章や選択した部分を CHAESSI PRESET のベース欄・キャラクター欄に送る Windows アプリです。NovelAI とは独立して開発しています。
@@ -18,7 +20,7 @@ NovelAI Inspect から画像のプロンプトを取り込み、編集した文�
 
     1. 次の公式 GitHub リリースで、所有者、リポジトリ名、v1.0.0
     タグを確認してください。
-    https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/tag/v1.0.0
+    https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/latest
     Chaessi-Metadata-Reader-Setup-x64.exe と
     Chaessi-Metadata-Reader-Chrome-Extension.zip を入手し、両方の SHA-256
     を同じリリースの SHA256SUMS.txt と照合してください。

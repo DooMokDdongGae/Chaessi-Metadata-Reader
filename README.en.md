@@ -1,5 +1,7 @@
 # Chaessi Metadata Reader 1.0.0
 
+[Download the latest Reader](https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/latest) · [November 23, 2026 patch baseline](https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/tag/v1.0.0)
+
 [한국어](README.ko.md) · [日本語](README.ja.md) · [Release notes](RELEASE-NOTES.en.md)
 
 Import an image’s prompts from NovelAI Inspect, edit them, and send selected text to a Base or Character field in CHAESSI PRESET. Chaessi Metadata Reader is independently developed.
@@ -18,7 +20,7 @@ If installation or pairing gets stuck, copy the entire prompt into your AI chat.
 
     1. Open this official GitHub release and verify the owner, repository and v1.0.0
     tag.
-    https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/tag/v1.0.0
+    https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/latest
     Download Chaessi-Metadata-Reader-Setup-x64.exe and
     Chaessi-Metadata-Reader-Chrome-Extension.zip. Compare both SHA-256 values with
     SHA256SUMS.txt from that release and stop if either differs. Preserve my existing

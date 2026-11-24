@@ -1,5 +1,7 @@
 # 채씨 메타데이터 리더 1.0.0
 
+[최신 Reader 다운로드](https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/latest) · [2026-11-23 패치 기준판](https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/tag/v1.0.0)
+
 [English](README.en.md) · [日本語](README.ja.md) · [릴리스 노트](RELEASE-NOTES.ko.md)
 
 NovelAI Inspect에서 이미지의 프롬프트를 가져와 편집하고, 원하는 문구를 CHAESSI PRESET의 베이스·캐릭터 칸에 보내는 Windows 프로그램입니다. NovelAI와 독립적으로 개발했습니다.
@@ -16,7 +18,7 @@ NovelAI Inspect에서 이미지의 프롬프트를 가져와 편집하고, 원�
     창이나 도구의 제한은 우회하지 마.
 
     1. 아래 공식 GitHub 릴리스에서 소유자, 저장소와 v1.0.0 태그를 확인해.
-    https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/tag/v1.0.0
+    https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/latest
     Chaessi-Metadata-Reader-Setup-x64.exe와
     Chaessi-Metadata-Reader-Chrome-Extension.zip을 받고 두 파일의 SHA-256을 같은
     릴리스의 SHA256SUMS.txt와 대조해. 불일치하면 실행하지 마. 설치·업데이트 전에 기존
