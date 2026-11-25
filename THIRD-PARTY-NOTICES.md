@@ -1,6 +1,6 @@
 # Third-party software notices
 
-Chaessi Metadata Reader 1.0.0 for Windows x64 includes the runtime components below. Their original copyright notices, license terms and disclaimers accompany this document. The terms listed here apply to their respective third-party components. Rights in Chaessi Metadata Reader and its Chrome extension remain with their respective rights holders.
+Chaessi Metadata Reader 1.0.1 for Windows x64 includes the runtime components below. Their original copyright notices, license terms and disclaimers accompany this document. The terms listed here apply to their respective third-party components. Rights in Chaessi Metadata Reader and its Chrome extension remain with their respective rights holders.
 
 | Component | Distribution terms |
 |---|---|
