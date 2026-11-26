@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>채씨 리더 최초 연결 설정</title>
+  <link rel="stylesheet" href="connect.css">
+</head>
+<body>
+  <main>
+    <h1>채씨 리더 최초 연결 설정</h1>
+    <p>최초 설정 후 이 탭을 닫아도 됩니다. Chrome이 실행 중이면 리더와 자동으로 연결됩니다.</p>
+    <form id="pair">
+      <label for="key">리더의 연결 키</label>
+      <input id="key" type="password" autocomplete="off" spellcheck="false" maxlength="64" required>
+      <button type="submit">최초 연결 저장</button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+    <button id="forget" type="button" hidden>연결 해제</button>
+    <p id="inspect-status" role="status" aria-live="polite"></p>
+    <button id="inspect-access" type="button">NovelAI Inspect 접근 허용</button>
+  </main>
+  <script src="bridge.js"></script>
+  <script src="connect.js"></script>
+</body>
+</html>

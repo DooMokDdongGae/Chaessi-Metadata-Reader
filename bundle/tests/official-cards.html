@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Readable bundle · synthetic cards</title>
+<script id="official-version" type="application/json" src="/app.js?v=260915h"></script>
+<style>
+  body { margin: 0; padding: 16px; background: #f1f4f6; color: #22313d; font: 15px/1.4 sans-serif; }
+  header, .img-card { max-width: 860px; margin: 0 auto 14px; background: white; padding: 12px 18px; }
+  header { display: flex; align-items: center; justify-content: space-between; }
+  h1, h2 { font-size: 18px; }
+  pre { white-space: pre-wrap; margin: 6px 0; }
+  button, a { font: inherit; }
+  [hidden] { display: none !important; }
+  #gate { position: fixed; z-index: 50; inset: 0; background: white; }
+</style>
+<header><h1>Offline synthetic bundle</h1><a id="run-helper">Run installed bookmark</a></header>
+<main id="detailView"><div id="detailImages"></div></main>
+<div id="gate" role="dialog" aria-modal="true" hidden>Access restricted</div>
+<script>
+  // These data are handwritten. No third-party metadata, page script or media.
+  const single = {
+    base: "  (paper boat:1.25)\n유리 & <등불>  ", negative: "stripe",
+    characters: [], readable: "Format: nai\n\nPrompt:\n  (paper boat:1.25)\n유리 & <등불>  \n\nNegative prompt:\nstripe"
+  };
+  const multi = {
+    base: "green greenhouse", negative: null,
+    characters: [
+      {positive: "wooden bird", negative: "brass", position: "(0.25, 0.50)"},
+      {positive: "blue 🚲", negative: null}
+    ],
+    readable: "Format: nai\n\nPrompt:\ngreen greenhouse\n\nCharacter prompts:\nCharacter 1: wooden bird | Character negative: brass | Position: (0.25, 0.50)\nCharacter 2: blue 🚲"
+  };
+  const rows = [
+    single, multi, {...single}, {base: null, negative: null, characters: [], noMetadata: true},
+    {base: "no delivery", negative: null, characters: [], noWrite: true},
+    {base: "", negative: null, characters: [], readable: ""}
+  ];
+
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function textWrap(value) {
+    const wrap = element("div", "ai-meta-text-wrap");
+    wrap.append(element("pre", "ai-meta-text", value));
+    return wrap;
+  }
+
+  function addPrompt(view, kind, value) {
+    if (value === null) return;
+    const section = element("section", "ai-meta-section " + kind);
+    const prompt = element("div", "ai-meta-prompt-item");
+    prompt.append(textWrap(value));
+    section.append(prompt);
+    view.append(section);
+  }
+
+  const access = window.fixtureAccess = {
+    clicks: [], toggles: [], rawCopies: 0, transmitted: [], clipboardReads: 0, legacyClipboard: 0,
+    storage: 0, cookie: 0, rawReads: 0
+  };
+  // All writes use this synthetic recipient. A test cannot reach the OS clipboard.
+  window.fixtureClipboard = {
+    async writeText(value) { access.transmitted.push(value); },
+    async readText() { access.clipboardReads++; throw Error("Clipboard read"); },
+    async read() { access.clipboardReads++; throw Error("Clipboard read"); },
+    async write() { throw Error("Unexpected non-text copy"); }
+  };
+  Object.defineProperty(navigator, "clipboard", {value: window.fixtureClipboard});
+  const forbid = (name) => () => { access[name]++; throw Error("Unexpected " + name); };
+  for (const key of ["localStorage", "sessionStorage"]) {
+    Object.defineProperty(window, key, {get: forbid("storage")});
+  }
+  Object.defineProperty(document, "cookie", {get: forbid("cookie"), set: forbid("cookie")});
+  document.execCommand = forbid("legacyClipboard");
+
+  for (const [index, row] of rows.entries()) {
+    const card = element("article", "img-card");
+    card.append(element("h2", "", "Synthetic image " + (index + 1)));
+    const box = element("div", "json-box short");
+    const actions = element("div", "json-actions");
+    const button = element("button", "json-copy", "Copy readable content");
+    button.type = "button";
+    button.dataset.mode = "readable";
+    button.addEventListener("click", () => {
+      access.clicks.push(index);
+      if (button.dataset.mode === "json") {
+        access.rawCopies++;
+        navigator.clipboard.writeText("{}");
+      } else if (!row.noWrite) {
+        navigator.clipboard.writeText(row.readable);
+      }
+    });
+    const viewWrapper = element("div", "ai-metadata-view");
+    const view = element("div", "ai-meta-readable");
+    view.dataset.format = "nai";
+    addPrompt(view, "positive", row.base);
+    addPrompt(view, "negative", row.negative);
+    if (row.characters.length) {
+      const section = element("section", "ai-meta-section characters");
+      row.characters.forEach((character, i) => {
+        const block = element("div", "ai-meta-character");
+        const title = String(i + 1) + (character.position ? " · " + character.position : "");
+        block.append(element("div", "ai-meta-character-title", title));
+        block.append(textWrap(character.positive));
+        if (character.negative !== null) {
+          block.append(element("div", "ai-meta-inline-label", "Negative"));
+          block.append(textWrap(character.negative));
+        }
+        section.append(block);
+      });
+      view.append(section);
+    }
+    viewWrapper.append(view);
+    actions.append(button);
+    box.append(actions, viewWrapper);
+    const raw = element("pre", "json-content metadata-raw-view", "{}");
+    raw.hidden = true;
+    const toggle = element("button", "json-view-toggle", "Original JSON");
+    toggle.type = "button";
+    toggle.setAttribute("aria-pressed", "false");
+    toggle.addEventListener("click", () => {
+      const useRaw = button.dataset.mode === "readable";
+      toggle.setAttribute("aria-pressed", String(useRaw));
+      raw.hidden = !useRaw;
+      viewWrapper.hidden = useRaw;
+      button.dataset.mode = useRaw ? "json" : "readable";
+      button.textContent = useRaw ? "Copy original JSON" : "Copy readable content";
+      access.toggles.push([index, button.dataset.mode]);
+    });
+    actions.prepend(toggle);
+    Object.defineProperty(raw, "innerText", {get: forbid("rawReads")});
+    Object.defineProperty(raw, "textContent", {get: forbid("rawReads")});
+    box.append(raw);
+    if (!row.noMetadata) card.append(box);
+    document.querySelector("#detailImages").append(card);
+  }
+</script>
+</html>

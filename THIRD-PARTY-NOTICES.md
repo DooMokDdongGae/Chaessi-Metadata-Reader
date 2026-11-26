@@ -1,6 +1,6 @@
 # Third-party software notices
 
-Chaessi Metadata Reader 1.0.1 for Windows x64 includes the runtime components below. Their original copyright notices, license terms and disclaimers accompany this document. The terms listed here apply to their respective third-party components. Rights in Chaessi Metadata Reader and its Chrome extension remain with their respective rights holders.
+Chaessi Metadata Reader 1.1.0 for Windows x64 includes the runtime components below. Their original copyright notices, license terms and disclaimers accompany this document. The terms listed here apply to their respective third-party components. Rights in Chaessi Metadata Reader and its Chrome extension remain with their respective rights holders.
 
 | Component | Distribution terms |
 |---|---|
@@ -15,3 +15,14 @@ Chaessi Metadata Reader 1.0.1 for Windows x64 includes the runtime components be
 | NSIS 3.0.4.1 | The installer and uninstaller use NSIS, its standard UI components and zlib compression. Copyright the NSIS contributors. [Original NSIS notices and licenses](licenses/NSIS.txt) |
 
 Google Chrome and CHAESSI PRESET are obtained separately. NovelAI is a third-party service. Their names identify the software and services with which the reader interoperates.
+
+
+The signed-release verifier additionally includes the following official wheel components:
+
+| Component | Distribution terms and original notices |
+|---|---|
+| PyCA cryptography 50.0.2 | Dual licensed under Apache-2.0 or BSD-3-Clause. [License choice](licenses/CRYPTOGRAPHY.txt), [Apache terms](licenses/CRYPTOGRAPHY-APACHE.txt), [BSD terms](licenses/CRYPTOGRAPHY-BSD.txt). The official Windows wheel statically links OpenSSL 4.0.3; Apache-2.0 terms apply. Original vendor dependency inventory: [wheel SBOM](licenses/CRYPTOGRAPHY-sbom.json), [Rust dependency SBOM](licenses/CRYPTOGRAPHY-cryptography-rust.cyclonedx.json). |
+| cffi 2.1.1 | MIT-style license, copyright Armin Rigo, Maciej Fijalkowski and contributors. [Original terms](licenses/CFFI.txt). |
+| pycparser 3.12 | BSD-3-Clause, copyright Eli Bendersky and contributors. Build/runtime dependency, when collected. [Original terms](licenses/PYCPARSER.txt). |
+
+Official sources: https://pypi.org/project/cryptography/50.0.2/ · https://pypi.org/project/cffi/2.1.1/ · https://pypi.org/project/pycparser/3.12/

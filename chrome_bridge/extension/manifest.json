@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "120",
+  "name": "채씨 메타데이터 리더 연결",
+  "description": "로컬 리더의 요청으로 aitag.win 작품 또는 열린 NovelAI Inspect 탭의 메타데이터를 읽습니다.",
+  "version": "0.3.1",
+  "permissions": ["storage", "scripting", "alarms"],
+  "host_permissions": ["https://aitag.win/*", "http://127.0.0.1/*"],
+  "optional_host_permissions": ["https://novelai.net/*"],
+  "background": {"service_worker": "open.js"},
+  "action": {"default_title": "채씨 리더 최초 연결 설정"},
+  "options_ui": {"page": "connect.html", "open_in_tab": true},
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src http://127.0.0.1:47921 ws://127.0.0.1:47921; base-uri 'none'; frame-src 'none'"
+  }
+}

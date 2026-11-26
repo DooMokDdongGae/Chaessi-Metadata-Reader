@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>메타데이터 리더 · 합성 브라우저 검증</title>
+<style>
+  body { color: #242a36; background: #f2f4f8; max-width: 860px; margin: 0 auto; padding: 14px; font: 15px/1.4 "Malgun Gothic", sans-serif; }
+  header, .img-card { background: white; border: 1px solid #c6cdd7; border-radius: 8px; margin-bottom: 8px; padding: 8px 14px; }
+  header { display: flex; align-items: center; justify-content: space-between; }
+  h1 { margin: 0; font-size: 19px; } h2 { margin: 0; font-size: 16px; }
+  pre { max-height: 130px; overflow: auto; margin: 4px 0; background: #f3f6fa; padding: 5px; white-space: pre-wrap; }
+  button, a { font: inherit; } [hidden] { display: none !important; }
+  #overlay { position: fixed; inset: 0; background: rgba(20,20,20,.25); }
+  #run-helper { position: relative; z-index: 2; }
+</style>
+<header>
+  <h1>원본 JSON · 합성 자료</h1>
+  <a id="run-helper">설치 파일의 북마클릿 실행</a>
+</header>
+<main id="detailView">
+  <div id="detailImages"></div>
+</main>
+<div id="overlay" hidden></div>
+<template id="image-card">
+  <article class="img-card">
+    <h2></h2>
+    <section class="json-box short">
+      <div class="json-actions">
+        <button type="button" class="json-view-toggle" aria-pressed="false">원본 JSON</button>
+        <button type="button" data-mode="readable">복사</button>
+      </div>
+      <div class="metadata-readable-view">읽기 쉬움</div>
+      <pre hidden class="json-content metadata-raw-view"></pre>
+    </section>
+  </article>
+</template>
+<script>
+  const synthetic = [
+    {Comment: {prompt: "종이배 한 척", uc: "비"}},
+    {Software: "NovelAI", Comment: {
+      v4_prompt: {caption: {base_caption: "  종이 정원, (구름:1.2)\nblue sky  ", char_captions: [
+        {char_caption: "노란 우산"}, {char_caption: "  연필 & 지도  "}
+      ]}},
+      v4_negative_prompt: {caption: {base_caption: "", char_captions: [{char_caption: "stripes"}]}}
+    }}
+  ];
+  const cards = synthetic.map((metadata, index) => {
+    const card = document.querySelector("#image-card").content.firstElementChild.cloneNode(true);
+    card.querySelector("h2").textContent = "이미지 " + (index + 1);
+    const pre = card.querySelector("pre");
+    pre.textContent = JSON.stringify(metadata, null, 2);
+    const toggle = card.querySelector(".json-view-toggle");
+    toggle.addEventListener("click", () => {
+      const raw = pre.hidden;
+      pre.hidden = !raw;
+      card.querySelector(".metadata-readable-view").hidden = raw;
+      toggle.setAttribute("aria-pressed", String(raw));
+      card.querySelector("[data-mode]").dataset.mode = raw ? "json" : "readable";
+    });
+    document.querySelector("#detailImages").append(card);
+    return card;
+  });
+  window.openRaw = index => cards[index].querySelector(".json-view-toggle").click();
+  window.installFixtureGuards = () => {
+    window.fixtureAccess = {clipboard: 0, storage: 0, cookie: 0, rawReads: [0, 0]};
+    cards.forEach((card, index) => {
+      const pre = card.querySelector("pre");
+      const proto = {textContent: Node.prototype, innerText: HTMLElement.prototype};
+      for (const [property, prototype] of Object.entries(proto)) {
+        const descriptor = Object.getOwnPropertyDescriptor(prototype, property);
+        Object.defineProperty(pre, property, {
+          get() {
+            window.fixtureAccess.rawReads[index]++;
+            return descriptor.get.call(pre);
+          },
+          set(value) { descriptor.set.call(pre, value); }
+        });
+      }
+    });
+    const prevent = type => () => {
+      window.fixtureAccess[type]++;
+      throw Error(type + " access in synthetic fixture");
+    };
+    Object.defineProperty(navigator, "clipboard", {get: prevent("clipboard")});
+    Object.defineProperty(window, "localStorage", {get: prevent("storage")});
+    Object.defineProperty(window, "sessionStorage", {get: prevent("storage")});
+    Object.defineProperty(document, "cookie", {get: prevent("cookie"), set: prevent("cookie")});
+    const exec = document.execCommand.bind(document);
+    document.execCommand = (command, ...args) => {
+      if (["copy", "cut", "paste"].includes(command.toLowerCase())) return prevent("clipboard")();
+      return exec(command, ...args);
+    };
+  };
+</script>
+</html>

@@ -1,0 +1,32 @@
+{
+  "images": [
+    {
+      "Software": "NovelAI",
+      "Description": "종이배 한 척",
+      "Comment": {"prompt": "종이배 한 척", "uc": "비"}
+    },
+    {
+      "Software": "NovelAI",
+      "Source": "NovelAI Diffusion V5",
+      "Comment": {
+        "v4_prompt": {
+          "caption": {
+            "base_caption": "  종이 정원, (구름:1.2)\nblue sky  ",
+            "char_captions": [
+              {"char_caption": "노란 우산", "centers": [{"x": 0.25, "y": 0.5}]},
+              {"char_caption": "  연필 & 지도  ", "centers": [{"x": 0.75, "y": 0.5}]}
+            ]
+          },
+          "use_coords": true,
+          "use_order": true
+        },
+        "v4_negative_prompt": {
+          "caption": {
+            "base_caption": "",
+            "char_captions": [{"char_caption": "stripes"}]
+          }
+        }
+      }
+    }
+  ]
+}

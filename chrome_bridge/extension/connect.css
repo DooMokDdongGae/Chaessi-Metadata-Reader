@@ -1,0 +1,10 @@
+:root { color-scheme: light; font: 16px/1.6 "Malgun Gothic", system-ui, sans-serif; color: #17372e; background: #eff4ef; }
+main { max-width: 36rem; margin: 8vh auto; padding: 2rem; border: 1px solid #cbd9ce; border-radius: .8rem; background: white; }
+h1 { margin-top: 0; font-size: 1.65rem; }
+label { display: block; }
+input, button { font: inherit; border: 1px solid #a8bcb0; border-radius: .4rem; padding: .4rem .7rem; }
+input { max-width: 70%; }
+button { color: white; background: #176453; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid #b37828; outline-offset: 2px; }
+#status { min-height: 1.6em; }
+[hidden] { display: none !important; }
