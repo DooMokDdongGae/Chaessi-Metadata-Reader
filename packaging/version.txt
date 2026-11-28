@@ -1,12 +1,12 @@
 VSVersionInfo(
-    ffi=FixedFileInfo(filevers=(1, 1, 0, 0), prodvers=(1, 1, 0, 0),
+    ffi=FixedFileInfo(filevers=(1, 1, 1, 0), prodvers=(1, 1, 1, 0),
                       mask=0x3f, flags=0, OS=0x40004, fileType=1, subtype=0, date=(0, 0)),
     kids=[StringFileInfo([StringTable('040904B0', [
         StringStruct('CompanyName', 'CHAESSI'),
         StringStruct('FileDescription', 'Chaessi Metadata Reader'),
-        StringStruct('FileVersion', '1.1.0.0'),
+        StringStruct('FileVersion', '1.1.1.0'),
         StringStruct('OriginalFilename', 'ChaessiMetadataReader.exe'),
         StringStruct('ProductName', 'Chaessi Metadata Reader'),
-        StringStruct('ProductVersion', '1.1.0'),
-        StringStruct('Comments', 'reader-20261126-01-public (2026112601)'),
+        StringStruct('ProductVersion', '1.1.1'),
+        StringStruct('Comments', 'reader-20261128-01-public (2026112801)'),
     ])]), VarFileInfo([VarStruct('Translation', [1033, 1200])])])

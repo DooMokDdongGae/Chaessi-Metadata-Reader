@@ -4,15 +4,8 @@ SetCompressor /SOLID zlib
 SetDateSave off
 ManifestDPIAware true
 Name "Chaessi Metadata Reader ${APP_VERSION}"
-!define RELOCATION_D
-!define READER_VOLUME "D:\"
-!define READER_PARENT "D:\MApp"
-!define READER_INSTALL "D:\MApp\Chaessi Reader"
-!define RELOCATION_MUTEX "Local\CHAESSI.MetadataReader.Relocation.Setup"
-!define FINALIZE_FLAG "/FINALIZE-RELOCATION"
-!define CANCEL_FLAG "/CANCEL-RELOCATION"
 OutFile "${WORK}\release\Chaessi-Metadata-Reader-Setup-x64.exe"
-InstallDir "${READER_INSTALL}"
+InstallDir "$LOCALAPPDATA\Programs\ChaessiMetadataReader"
 ShowInstDetails show
 ShowUninstDetails show
 
@@ -30,9 +23,12 @@ VIAddVersionKey /LANG=1033 "FileVersion" "${APP_VERSION}.0"
 VIAddVersionKey /LANG=1033 "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=1033 "Comments" "Build ${BUILD_ID}"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "CHAESSI"
-!define MUI_WELCOMEPAGE_TEXT "$(RelocationWelcome)"
+!define MUI_WELCOMEPAGE_TEXT "$(InstallWelcome)"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "${WORK}\license-page.txt"
+!define MUI_PAGE_CUSTOMFUNCTION_PRE DirectoryPre
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryLeave
+!insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -70,61 +66,12 @@ LangString UpdateRolledBack ${LANG_JAPANESE} "更新が完了しなかったた�
 LangString RegistrationIncomplete ${LANG_ENGLISH} "Reader files are installed, but Windows could not record the version. Run this Setup again to finish registration."
 LangString RegistrationIncomplete ${LANG_KOREAN} "리더 파일을 설치했지만 Windows가 버전을 기록하지 못했습니다. 이 설치기를 다시 실행해 등록을 완료하세요."
 LangString RegistrationIncomplete ${LANG_JAPANESE} "リーダーのファイルはインストールされましたが、Windowsにバージョンを記録できませんでした。同じセットアップをもう一度実行してください。"
-LangString RelocationWelcome ${LANG_ENGLISH} "This Setup installs Chaessi Metadata Reader in ${READER_INSTALL}. Close Reader normally before continuing. Your settings and connection details stay in your Windows profile."
-LangString RelocationWelcome ${LANG_KOREAN} "리더를 ${READER_INSTALL}에 설치합니다. 계속하기 전에 리더를 정상 종료하세요. 설정과 연결 정보는 기존 Windows 프로필에 보존됩니다."
-LangString RelocationWelcome ${LANG_JAPANESE} "リーダーを ${READER_INSTALL} にインストールします。続行する前にリーダーを通常の手順で終了してください。設定と接続情報は現在の Windows プロファイルに保持されます。"
-LangString RelocationTrialReady ${LANG_ENGLISH} "The trial Reader is ready. The C-drive installation is still registered. Close Reader, then open ${READER_INSTALL}\${APP} to test it. Close the trial Reader and run this same Setup again when you are ready to finish the move."
-LangString RelocationTrialReady ${LANG_KOREAN} "D 드라이브의 시험용 리더가 준비됐습니다. Windows에는 기존 C 설치가 등록돼 있습니다. 리더를 닫은 뒤 ${READER_INSTALL}\${APP}를 직접 열어 시험하세요. 시험이 끝나면 리더를 닫고 같은 설치기를 다시 실행하세요."
-LangString RelocationTrialReady ${LANG_JAPANESE} "D ドライブの試用版リーダーの準備ができました。Windows には引き続き C ドライブのインストールが登録されています。リーダーを閉じ、${READER_INSTALL}\${APP} を直接開いて動作を確認してください。確認後、リーダーを閉じ、同じセットアップをもう一度実行してください。"
-LangString RelocationConfirm ${LANG_ENGLISH} "Have you tested Reader from ${READER_INSTALL} and closed it? Choose Yes to finish the move and remove the previous C-drive installation. Choose No to leave the trial ready for further testing."
-LangString RelocationConfirm ${LANG_KOREAN} "${READER_INSTALL}에서 리더를 직접 실행해 시험을 마쳤고 리더를 닫으셨나요? 예를 누르면 D 드라이브 이전을 완료하고 기존 C 설치를 제거합니다. 아니요를 누르면 시험 상태를 그대로 유지합니다."
-LangString RelocationConfirm ${LANG_JAPANESE} "${READER_INSTALL} のリーダーを直接起動して動作を確認し、終了しましたか？「はい」で移行を完了し、C ドライブの以前のインストールを削除します。「いいえ」で試用状態を維持します。"
-LangString RelocationFlagInvalid ${LANG_ENGLISH} "Use ${FINALIZE_FLAG} or ${CANCEL_FLAG} separately, only when the trial Reader is ready."
-LangString RelocationFlagInvalid ${LANG_KOREAN} "시험용 리더가 준비된 뒤 ${FINALIZE_FLAG} 또는 ${CANCEL_FLAG} 중 하나만 사용하세요."
-LangString RelocationFlagInvalid ${LANG_JAPANESE} "試用版リーダーの準備ができてから、${FINALIZE_FLAG} または ${CANCEL_FLAG} のいずれか一方を指定してください。"
-LangString RelocationComplete ${LANG_ENGLISH} "Reader moved to ${READER_INSTALL}."
-LangString RelocationComplete ${LANG_KOREAN} "리더를 ${READER_INSTALL}로 이전했습니다."
-LangString RelocationComplete ${LANG_JAPANESE} "リーダーを ${READER_INSTALL} に移行しました。"
-LangString RelocationCancelled ${LANG_ENGLISH} "Reader relocation was cancelled. The existing C-drive installation remains registered."
-LangString RelocationCancelled ${LANG_KOREAN} "리더 이전을 취소했습니다. Windows에는 기존 C 설치가 등록돼 있습니다."
-LangString RelocationCancelled ${LANG_JAPANESE} "リーダーの移行を取り消しました。Windows には C ドライブの既存のインストールが引き続き登録されています。"
-LangString RelocationRecovered ${LANG_ENGLISH} "Reader relocation recovery finished. Check the Reader location in Windows before launching it."
-LangString RelocationRecovered ${LANG_KOREAN} "리더 이전 복구가 끝났습니다. 실행하기 전에 Windows에서 리더 설치 위치를 확인하세요."
-LangString RelocationRecovered ${LANG_JAPANESE} "リーダーの移行の復旧が完了しました。起動する前に Windows でインストール場所を確認してください。"
-LangString RelocationRestored ${LANG_ENGLISH} "Reader could not be moved. The previous installation was restored."
-LangString RelocationRestored ${LANG_KOREAN} "리더 이전을 완료하지 못해 이전 설치를 복원했습니다."
-LangString RelocationRestored ${LANG_JAPANESE} "リーダーを移行できなかったため、以前のインストールを復元しました。"
-LangString RelocationRecovery ${LANG_ENGLISH} "Reader relocation stopped before recovery finished. Reopen this same relocation Setup to resume recovery. Keep the existing files and settings."
-LangString RelocationRecovery ${LANG_KOREAN} "리더 이전 중 복구를 완료하지 못했습니다. 이번에 사용한 D 드라이브 이전용 설치기를 다시 열어 복구를 이어가세요. 기존 파일과 설정을 보존하세요."
-LangString RelocationRecovery ${LANG_JAPANESE} "移行中の復旧が完了していません。同じ移行セットアップを開いて復旧を再開してください。既存のファイルと設定は保持してください。"
+LangString InstallWelcome ${LANG_ENGLISH} "Install Reader for this Windows user. New installations use the standard per-user folder; you may choose another local folder. An existing verified installation keeps its location. Settings and connection details stay in your Windows profile."
+LangString InstallWelcome ${LANG_KOREAN} "현재 Windows 사용자를 위해 리더를 설치합니다. 신규 설치는 표준 사용자별 폴더를 기본으로 하며 다른 로컬 폴더를 선택할 수 있습니다. 검증된 기존 설치 위치와 프로필의 설정·연결 정보는 유지됩니다."
+LangString InstallWelcome ${LANG_JAPANESE} "現在の Windows ユーザー用にリーダーをインストールします。新規インストールは標準のユーザー別フォルダーを使用し、別のローカルフォルダーも選べます。確認済みの既存インストール先とプロファイルの設定・接続情報は維持されます。"
 
 !include "guards.nsh"
 !include "update.nsh"
-
-Var RelocationRequest
-
-!macro StopRelocation code message
-  DetailPrint "$(${message})"
-  MessageBox MB_ICONSTOP|MB_OK "$(${message})" /SD IDOK
-  SetErrorLevel ${code}
-  Abort
-!macroend
-
-!macro RequireRelocationSuccess
-  ${If} $UpdateExit == 4
-    !insertmacro StopRelocation 4 "RelocationRestored"
-  ${ElseIf} $UpdateExit == 5
-    !insertmacro StopRelocation 5 "RelocationRecovery"
-  ${EndIf}
-  !insertmacro RequireUpdateSuccess
-!macroend
-
-!macro FinishRelocation message
-  DetailPrint "$(${message})"
-  MessageBox MB_ICONINFORMATION|MB_OK "$(${message})" /SD IDOK
-  SetErrorLevel 0
-  Quit
-!macroend
 
 ; Never remove or replace a pre-existing shortcut. For shortcuts created by
 ; Reader, compare with the original bytes so subsequent user changes survive.
@@ -214,8 +161,6 @@ FunctionEnd
   SetRegView 64
   StrCpy $Pins 0
   StrCpy $ProfileBoundary "$PROFILE"
-  StrCpy $INSTDIR "${READER_INSTALL}"
-  !insertmacro AcquireNamedSetupMutex "${RELOCATION_MUTEX}"
   ${IfNot} ${RunningX64}
     MessageBox MB_ICONSTOP|MB_OK "$(Need64)" /SD IDOK
     SetErrorLevel 2
@@ -245,114 +190,107 @@ Function RecordDisplayVersion
 done:
 FunctionEnd
 
-Function ReadRelocationRequest
-  ; Only exact command-line tokens can authorize removal of the old installation.
-  StrCpy $RelocationRequest ""
-  System::Call 'kernel32::GetCommandLineW() p .R1'
-  System::Call 'shell32::CommandLineToArgvW(p R1, *i .R2) p .R0'
-  StrCmp $R0 0 invalid
-  StrCpy $R3 $R0
-nextArgument:
-  IntOp $R2 $R2 - 1
-  IntCmp $R2 0 done freeInvalid 0
-  IntOp $R3 $R3 + ${NSIS_PTR_SIZE}
-  System::Call '*$R3(p .R4)'
-  System::Call 'kernel32::lstrcpynW(w .R5, p R4, i 64) p'
-  StrCmp "$R5" "${FINALIZE_FLAG}" finalize
-  StrCmp "$R5" "${CANCEL_FLAG}" cancel
-  StrCpy $R6 "$R5" 3
-  StrCmp "$R6" "/D=" pathOverride
-  StrLen $R6 "${FINALIZE_FLAG}"
-  StrCpy $R7 "$R5" $R6
-  StrCmp "$R7" "${FINALIZE_FLAG}" freeInvalid
-  StrLen $R6 "${CANCEL_FLAG}"
-  StrCpy $R7 "$R5" $R6
-  StrCmp "$R7" "${CANCEL_FLAG}" freeInvalid nextArgument
-finalize:
-  StrCmp "$RelocationRequest" "" 0 freeInvalid
-  StrCpy $RelocationRequest "commit"
-  Goto nextArgument
-cancel:
-  StrCmp "$RelocationRequest" "" 0 freeInvalid
-  StrCpy $RelocationRequest "cancel"
-  Goto nextArgument
-pathOverride:
-  ; NSIS consumes the rest of the command line as the /D path.
-  StrCmp "$RelocationRequest" "" done freeInvalid
-done:
-  System::Call 'kernel32::LocalFree(p R0) p'
+!macro SetInstallBoundariesFunction PREFIX
+Function ${PREFIX}SetInstallBoundaries
+  StrCpy $InstallBoundary "$INSTDIR"
+  ${GetParent} "$INSTDIR" $InstallParent
+FunctionEnd
+!macroend
+!insertmacro SetInstallBoundariesFunction ""
+!insertmacro SetInstallBoundariesFunction "un."
+
+Function NormalizeInstallRoot
+  ; NSIS GetFullPathName empties its output when an ancestor does not yet
+  ; exist. Win32 GetFullPathNameW is lexical and preserves fresh destinations.
+  ; Call only after the packaged helper has rejected unsafe raw spellings.
+  System::Call 'kernel32::GetFullPathNameW(w "$INSTDIR", i ${NSIS_MAX_STRLEN}, w .r0, p 0) i .r1'
+  IntCmp $1 0 invalid invalid 0
+  IntCmp $1 ${NSIS_MAX_STRLEN} invalid 0 invalid
+  StrCmp $0 "" invalid
+  ; The validated root is never a drive root. Remove its optional separator
+  ; so registration, helper scope and pinned boundaries use the same path.
+  StrCpy $1 $0 1 -1
+  StrCmp $1 "\" 0 +2
+  StrCpy $0 $0 -1
+  StrCpy $INSTDIR $0
   Return
-freeInvalid:
-  System::Call 'kernel32::LocalFree(p R0) p'
 invalid:
-  !insertmacro StopRelocation 2 "RelocationFlagInvalid"
+  !insertmacro Stop
 FunctionEnd
 
-Function FinishTrial
-  ${If} $RelocationRequest == ""
-    ${If} ${Silent}
-      !insertmacro FinishRelocation "RelocationTrialReady"
-    ${EndIf}
-    MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "$(RelocationConfirm)" /SD IDNO IDYES confirmed
-    !insertmacro FinishRelocation "RelocationTrialReady"
+Function DirectoryPre
+  ; Updating an existing product never silently relocates it.
+  StrCmp $UpdateMode "fresh" show
+  Abort
+show:
+FunctionEnd
+
+Function DirectoryLeave
+  Call SetInstallBoundaries
+  ; The packaged updater validates the selected local path, volume and any
+  ; existing product before the install section is permitted to write files.
+  !insertmacro RunUpdater "guard"
+  !insertmacro RequireUpdateSuccess
+  Call NormalizeInstallRoot
+  Call SetInstallBoundaries
+FunctionEnd
+
+Function LocateExistingInstallation
+  ; Read-only discovery of an existing registered root or a protected,
+  ; interrupted fresh-install root. Never send a user path to the log.
+  ClearErrors
+  ExecWait '"$PLUGINSDIR\chaessi-update.exe" locate-installation --output "$PLUGINSDIR\install-root.txt"' $UpdateExit
+  IfErrors 0 +4
+  !insertmacro Stop
+  ${If} $UpdateExit == 10
+    Return
   ${EndIf}
-  ${If} $RelocationRequest == "cancel"
-    !insertmacro RunUpdater "relocate --operation cancel"
-    !insertmacro RequireRelocationSuccess
-    !insertmacro FinishRelocation "RelocationCancelled"
-  ${EndIf}
-confirmed:
-  !insertmacro RunUpdater "relocate --operation commit"
-  !insertmacro RequireRelocationSuccess
-  !insertmacro FinishRelocation "RelocationComplete"
+  !insertmacro RequireUpdateSuccess
+  ClearErrors
+  FileOpen $0 "$PLUGINSDIR\install-root.txt" r
+  IfErrors 0 +4
+  !insertmacro Stop
+  FileReadUTF16LE $0 $1
+  FileClose $0
+  StrCmp "$1" "" 0 +4
+  !insertmacro Stop
+  StrCpy $INSTDIR "$1"
 FunctionEnd
 
 Function .onInit
   !insertmacro Init ""
+  !insertmacro AcquireUpdateMutex
   !insertmacro RestoreInstallerLanguage
-  Call ReadRelocationRequest
-  !insertmacro StageUpdater
-  !insertmacro RunUpdater "relocate-guard"
-  ${If} $UpdateExit == 20
-    ${If} $RelocationRequest != ""
-      !insertmacro StopRelocation 2 "RelocationFlagInvalid"
-    ${EndIf}
-    StrCpy $UpdateMode "relocation-stage"
-  ${ElseIf} $UpdateExit == 21
-    ; The C-drive uninstaller must be free to acquire its standard mutex.
-    Call FinishTrial
-  ${ElseIf} $UpdateExit == 22
-    ${If} $RelocationRequest != ""
-      !insertmacro StopRelocation 2 "RelocationFlagInvalid"
-    ${EndIf}
-    !insertmacro RunUpdater "relocate --operation recover"
-    !insertmacro RequireRelocationSuccess
-    !insertmacro FinishRelocation "RelocationRecovered"
-  ${ElseIf} $UpdateExit == 5
-    !insertmacro StopRelocation 5 "RelocationRecovery"
-  ${Else}
-    !insertmacro RequireUpdateSuccess
-    ${If} $RelocationRequest != ""
-      !insertmacro StopRelocation 2 "RelocationFlagInvalid"
-    ${EndIf}
-    !insertmacro AcquireUpdateMutex
-    !insertmacro RunUpdater "guard"
-    ${If} $UpdateExit == 10
-      Call RecordDisplayVersion
-      MessageBox MB_ICONINFORMATION|MB_OK "$(UpdateCurrent)" /SD IDOK
-      SetErrorLevel 0
-      Quit
-    ${ElseIf} $UpdateExit == 12
-      StrCpy $UpdateMode "commit"
-    ${ElseIf} $UpdateExit == 3
-    ${OrIf} $UpdateExit == 11
-      StrCpy $UpdateMode "upgrade"
-    ${ElseIf} $UpdateExit == 0
-      StrCpy $UpdateMode "fresh"
-    ${Else}
-      !insertmacro UpdateStopped
-    ${EndIf}
+  ; NSIS initializes this from the per-user default or an explicit /D choice.
+  ; Both go through the identical packaged path/ownership checks below.
+  ${If} $INSTDIR == ""
+    StrCpy $INSTDIR "$LOCALAPPDATA\Programs\ChaessiMetadataReader"
   ${EndIf}
+  !insertmacro StageUpdater
+  Call LocateExistingInstallation
+  Call SetInstallBoundaries
+  !insertmacro RunUpdater "guard"
+  ${If} $UpdateExit == 10
+    Call RecordDisplayVersion
+    MessageBox MB_ICONINFORMATION|MB_OK "$(UpdateCurrent)" /SD IDOK
+    SetErrorLevel 0
+    Quit
+  ${ElseIf} $UpdateExit == 12
+    StrCpy $UpdateMode "commit"
+  ${ElseIf} $UpdateExit == 13
+    StrCpy $UpdateMode "fresh-recovery"
+  ${ElseIf} $UpdateExit == 3
+  ${OrIf} $UpdateExit == 11
+    StrCpy $UpdateMode "upgrade"
+  ${ElseIf} $UpdateExit == 0
+    StrCpy $UpdateMode "fresh"
+  ${Else}
+    !insertmacro UpdateStopped
+  ${EndIf}
+  ; Normalize only after strict raw-path validation; do not turn a rejected
+  ; dot/device/ADS spelling into an accepted path before the helper sees it.
+  Call NormalizeInstallRoot
+  Call SetInstallBoundaries
   Call HideDesktopUnlessFresh
   ${IfNot} ${Silent}
     !insertmacro MUI_LANGDLL_DISPLAY
@@ -362,25 +300,25 @@ Function un.onInit
   !insertmacro Init "un."
   !insertmacro AcquireUpdateMutex
   !insertmacro RestoreInstallerLanguage
+  ; NSIS initializes the uninstaller's $INSTDIR from its original directory.
+  ; Never redirect an old/copied remover to another registered installation.
+  ReadRegStr $0 HKCU "${ARP}" "InstallLocation"
+  StrCmp "$0" "$INSTDIR" +4
+  !insertmacro Stop
+  Call un.SetInstallBoundaries
   !insertmacro StageUpdater
   !insertmacro RunUpdater "uninstall-guard"
   !insertmacro RequireUpdateSuccess
 FunctionEnd
 
 !macro AppRoot PREFIX
-  ; Never use /D or persisted registry strings as filesystem targets.
-  StrCpy $INSTDIR "${READER_INSTALL}"
-  StrCmp "$LOCALAPPDATA" "$PROFILE\AppData\Local" +4
-  !insertmacro Stop
-  StrCpy $R0 "${READER_VOLUME}"
-  System::Call 'kernel32::GetDriveTypeW(w R0) i .r1'
-  StrCmp $1 3 +4
-  !insertmacro Stop
+  ; Root was validated by the packaged updater, never reconstructed from a
+  ; developer drive letter. Keep the same selected/attested path throughout.
+  Call ${PREFIX}SetInstallBoundaries
+  StrCpy $R0 "$INSTDIR"
   Call ${PREFIX}Pin
-  ${If} ${FileExists} "${READER_PARENT}\."
-    StrCpy $GuardPath "${READER_PARENT}"
-    Call ${PREFIX}PinChain
-  ${EndIf}
+  StrCpy $GuardPath "$INSTDIR"
+  Call ${PREFIX}PinChain
 !macroend
 !macro ProductMarker
   ClearErrors
@@ -393,47 +331,19 @@ FunctionEnd
   !insertmacro Stop
 !macroend
 
-Function StageRelocationOwnership
-  InitPluginsDir
-  SetOutPath "$PLUGINSDIR"
-  ClearErrors
-  WriteUninstaller "$PLUGINSDIR\reader-uninstaller.generated"
-  IfErrors 0 +4
-  !insertmacro Stop
-  StrCpy $0 "en"
-  StrCmp $LANGUAGE ${LANG_KOREAN} 0 +2
-  StrCpy $0 "ko"
-  StrCmp $LANGUAGE ${LANG_JAPANESE} 0 +2
-  StrCpy $0 "ja"
-  ; Set the working directory for the staged links without creating D folders.
-  StrCpy $OUTDIR "$INSTDIR"
-  ClearErrors
-  CreateShortcut "$PLUGINSDIR\reader-start.lnk" "$INSTDIR\${APP}"
-  IfErrors 0 +4
-  !insertmacro Stop
-  ClearErrors
-  CreateShortcut "$PLUGINSDIR\reader-guide.lnk" "$INSTDIR\docs\README.$0.html"
-  IfErrors 0 +4
-  !insertmacro Stop
-  ClearErrors
-  CreateShortcut "$PLUGINSDIR\reader-desktop.lnk" "$INSTDIR\${APP}"
-  IfErrors 0 +4
-  !insertmacro Stop
-  SetOutPath "$PLUGINSDIR"
-FunctionEnd
-
 Section "$(AppSection)" Application
   SectionIn RO
-  !insertmacro AppRoot ""
-  ${If} $UpdateMode == "relocation-stage"
-    !insertmacro StageFiles
-    Call StageRelocationOwnership
-    !insertmacro RunUpdater 'relocate --operation stage --payload "$PLUGINSDIR\payload" --uninstaller "$PLUGINSDIR\reader-uninstaller.generated" --start-link "$PLUGINSDIR\reader-start.lnk" --guide-link "$PLUGINSDIR\reader-guide.lnk" --desktop-link "$PLUGINSDIR\reader-desktop.lnk" --installer-language $LANGUAGE'
-    !insertmacro RequireRelocationSuccess
-    DetailPrint "$(RelocationTrialReady)"
-    MessageBox MB_ICONINFORMATION|MB_OK "$(RelocationTrialReady)" /SD IDOK
-    Goto done
-  ${ElseIf} $UpdateMode == "upgrade"
+  ${If} $UpdateMode == "fresh-recovery"
+    ; Only after the user proceeds through the wizard, roll back the exact
+    ; hash-proven files of this interrupted fresh setup, then install normally.
+    !insertmacro RunUpdater "fresh-recover"
+    !insertmacro RequireUpdateSuccess
+    StrCpy $UpdateMode "fresh"
+  ${EndIf}
+  ${If} $UpdateMode != "fresh"
+    !insertmacro AppRoot ""
+  ${EndIf}
+  ${If} $UpdateMode == "upgrade"
     !insertmacro StageFiles
     SetOutPath "$PLUGINSDIR"
     ClearErrors
@@ -461,9 +371,19 @@ Section "$(AppSection)" Application
   ; to the shared updater, even if they appeared after .onInit.
   !insertmacro RunUpdater "guard"
   !insertmacro RequireUpdateSuccess
-  !insertmacro RunUpdater "setup-begin"
+  SetOutPath "$PLUGINSDIR"
+  ClearErrors
+  WriteUninstaller "$PLUGINSDIR\reader-uninstaller.generated"
+  IfErrors 0 +4
+  !insertmacro Stop
+  !insertmacro RunUpdater 'setup-begin --uninstaller "$PLUGINSDIR\reader-uninstaller.generated"'
   !insertmacro RequireUpdateSuccess
-  !insertmacro InstallDir "${READER_PARENT}"
+  !insertmacro AppRoot ""
+  ; PinChain now retains every existing ancestor and this root without delete
+  ; sharing. Re-attest the same leaf's owner/private ACL while those handles
+  ; stay live: the first helper call alone cannot authorize a replaced root.
+  !insertmacro RunUpdater 'setup-begin --uninstaller "$PLUGINSDIR\reader-uninstaller.generated"'
+  !insertmacro RequireUpdateSuccess
   ; Uninstall leaves unrelated records in place. The updater has attested
   ; that any remaining directory contains no installed Reader files.
   !insertmacro InstallDir "$INSTDIR"
@@ -471,11 +391,6 @@ Section "$(AppSection)" Application
   SetOverwrite off
   !insertmacro InstallFiles
   SetOutPath "$INSTDIR"
-  InitPluginsDir
-  ClearErrors
-  WriteUninstaller "$PLUGINSDIR\reader-uninstaller.generated"
-  IfErrors 0 +4
-  !insertmacro Stop
   ; CopyFile with bFailIfExists never writes through a colliding link or file.
   System::Call 'kernel32::CopyFileW(w "$PLUGINSDIR\reader-uninstaller.generated", w "$INSTDIR\Uninstall.exe", i 1) i .r6'
   StrCmp $6 0 0 +4
@@ -524,6 +439,7 @@ SectionEnd
 
 Function HideDesktopUnlessFresh
   StrCmp $UpdateMode "fresh" done
+  StrCmp $UpdateMode "fresh-recovery" done
   SectionSetText ${Desktop} ""
   SectionSetFlags ${Desktop} 0
 done:
@@ -534,8 +450,8 @@ Function un.CheckRegistration
   ReadRegStr $0 HKCU "${ARP}" "InstallLocation"
   ReadRegStr $1 HKCU "${ARP}" "UninstallString"
   ${If} ${Errors}
-  ${OrIf} $0 != "${READER_INSTALL}"
-  ${OrIf} $1 != '"${READER_INSTALL}\Uninstall.exe"'
+  ${OrIf} $0 != "$INSTDIR"
+  ${OrIf} $1 != '"$INSTDIR\Uninstall.exe"'
     !insertmacro Stop
   ${EndIf}
 FunctionEnd

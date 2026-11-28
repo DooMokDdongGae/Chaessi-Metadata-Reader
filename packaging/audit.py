@@ -3,6 +3,7 @@ import ast
 import hashlib
 import json
 import marshal
+import re
 import runpy
 from pathlib import Path
 import struct
@@ -19,10 +20,20 @@ def sha(data):
 
 
 def check_private_strings(data, label):
-    for prefix in ("E:/CHAESSI_STUDIO/", "D:/AI/CodexApps/", str(Path.home()).replace("\\", "/") + "/"):
-        for form in (prefix, prefix.replace("/", "\\")):
-            if any(form.lower().encode(enc) in data.lower() for enc in ("utf-8", "utf-16-le")):
-                raise ValueError(f"Development path in {label}")
+    # Do not publish developer-specific paths as literals in this scanner's own
+    # source. Match path categories and the current build user's home at runtime.
+    patterns = (
+        r"[a-z]:/users/[^/\s\x00]+/(?:appdata|desktop|documents|downloads|pictures|\.codex|\.ssh|\.aws)/",
+        r"[a-z]:/(?:[^/\s\x00]+/){0,5}(?:\d+_projects|codexapps|\.worktrees)/",
+        r"-----begin (?:rsa |ec |openssh |encrypted )?private key-----",
+        r"bearer\s+[a-z0-9._~+/-]{24,}",
+        r"(?:access_token|refresh_token|api_key|password)[\"']?\s*[:=]\s*[\"'][a-z0-9._~+/-]{24,}[\"']",
+    )
+    home = str(Path.home()).replace("\\", "/").casefold().rstrip("/") + "/"
+    for encoding in ("utf-8", "utf-16-le"):
+        text = data.decode(encoding, errors="ignore").replace("\\", "/").casefold()
+        if home in text or any(re.search(pattern, text) for pattern in patterns):
+            raise ValueError(f"Private path or credential material in {label}")
 
 
 def inspect_code(code, label):

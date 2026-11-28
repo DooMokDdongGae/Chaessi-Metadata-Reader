@@ -325,7 +325,7 @@ def prepare_lists(work, payload, files):
     nsis_lists(work, files)
 
 
-def package(work, makensis, baseline, nov23, nov22, v101, relocation):
+def package(work, makensis, baseline, nov23, nov22, v101, relocation, v110):
     check_source_snapshot(work)
     compiler_environment(makensis)
     delta = runpy.run_path(str(ROOT / "packaging" / "release_delta.py"))
@@ -337,7 +337,7 @@ def package(work, makensis, baseline, nov23, nov22, v101, relocation):
     (payload / "product.id").write_text(MARKER, encoding="ascii")
     files = safe_files(payload)
     expected = {file.as_posix(): digest(payload / file) for file in files}
-    policy = delta["catalogue"](expected, baseline, nov23, nov22, v101, relocation)
+    policy = delta["catalogue"](expected, baseline, nov23, nov22, v101, relocation, v110)
     target = policy["target"]
     from_baseline = policy["known"][0]
     changes = delta["classify"](from_baseline["payload"], expected)
@@ -357,8 +357,10 @@ def package(work, makensis, baseline, nov23, nov22, v101, relocation):
     manifest = {"app": delta["APP_VERSION"], "extension": "0.3.1", "tools": {"python": "3.13.17",
                 "pyinstaller": "6.22.3", "nsis": "3.0.4.1", "nsis_sha256": NSIS_SHA256},
                 "release": hashes, "payload": expected, "build": target["id"],
-                "sequence": target["sequence"], "install_location": "D:/MApp/Chaessi Reader",
-                "edition": "public-production-signed-release", "preset_trust": public_trust(),
+                "sequence": target["sequence"],
+                "install_policy": {"scope": "current-user", "default": "%LOCALAPPDATA%/Programs/ChaessiMetadataReader",
+                                   "selectable_local_root": True, "retain_verified_existing_root": True},
+                "edition": "public-production", "preset_trust": public_trust(),
                 "upgrade_baseline": from_baseline["id"],
                 "known_upgrade_builds": [entry["id"] for entry in policy["known"]],
                 "catalogue_sha256": digest(catalogue_path)}
@@ -376,17 +378,18 @@ def main():
     parser.add_argument("--nov22", type=Path, help="Approved November 22 public manifest")
     parser.add_argument("--v101", type=Path, help="Approved public 1.0.1 build 2026112501 manifest")
     parser.add_argument("--relocation", type=Path, help="Approved D relocation build 2026112502 manifest")
+    parser.add_argument("--v110", type=Path, help="Approved public 1.1.0 build 2026112601 manifest")
     args = parser.parse_args()
     work = args.work.resolve()
     if work.is_relative_to(ROOT) or not work.is_absolute():
         parser.error("Build outside the source checkout")
     if args.step == "freeze":
         freeze(work)
-    elif all((args.makensis, args.baseline, args.nov23, args.nov22, args.v101, args.relocation)):
+    elif all((args.makensis, args.baseline, args.nov23, args.nov22, args.v101, args.relocation, args.v110)):
         package(work, *(argument.resolve() for argument in (args.makensis, args.baseline, args.nov23, args.nov22,
-                                                            args.v101, args.relocation)))
+                                                            args.v101, args.relocation, args.v110)))
     else:
-        parser.error("setup requires --makensis, --baseline, --nov23, --nov22, --v101 and --relocation")
+        parser.error("setup requires --makensis, --baseline, --nov23, --nov22, --v101, --relocation and --v110")
 
 
 if __name__ == "__main__":

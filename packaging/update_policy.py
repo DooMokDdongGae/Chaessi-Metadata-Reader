@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import re
+from pathlib import PureWindowsPath
 from types import MappingProxyType
 
 
@@ -13,6 +14,8 @@ BUILD_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,79}")
 PATH_PART = re.compile(r"[\w .()+@,#=-]+", re.ASCII)
 RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
             *(f"LPT{i}" for i in range(1, 10))}
+INSTALL_RESERVED = RESERVED | {"CONIN$", "CONOUT$", "CLOCK$", *(f"COM{i}" for i in "¹²³"),
+                               *(f"LPT{i}" for i in "¹²³")}
 OWNER_FILES = {"uninstall.exe", "uninstaller.copy", "start-link.copy",
                "guide-link.copy", "desktop-link.copy"}
 
@@ -57,6 +60,27 @@ def valid_hash(value):
 
 def valid_sequence(value):
     return type(value) is int and 0 < value <= 2147483647
+
+
+def installation_path(value):
+    """Validate a local installation root, independently of manifest filenames.
+
+    Manifest members remain the existing ASCII allowlist. A user-selected root
+    may contain Unicode and spaces, but must have one unambiguous Win32 spelling.
+    This function grants no filesystem ownership or deletion authority.
+    """
+    reject("UNSAFE_INSTALL_ROOT", not isinstance(value, str) or not 3 < len(value) <= 200
+           or not re.match(r"^[A-Za-z]:[\\/]", value))
+    # Inspect the original spelling before PureWindowsPath normalizes dot/empty
+    # components. Permit one conventional trailing separator, not interior ones.
+    spelling = value.replace("/", "\\")
+    components = spelling[3:].removesuffix("\\").split("\\")
+    for part in components:
+        reject("UNSAFE_INSTALL_ROOT", not part or part in (".", "..")
+               or part.endswith((" ", "."))
+               or any(ord(c) < 32 or c in '<>:"|?*' for c in part)
+               or part.split(".")[0].rstrip(" .").upper() in INSTALL_RESERVED)
+    return PureWindowsPath(value)
 
 
 def relative_parts(value):

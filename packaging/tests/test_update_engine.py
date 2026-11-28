@@ -1,5 +1,5 @@
 """Exercise the same update policy and transaction with disposable files only."""
-from contextlib import contextmanager, nullcontext, redirect_stderr, redirect_stdout
+from contextlib import ExitStack, contextmanager, nullcontext, redirect_stderr, redirect_stdout
 import hashlib
 from io import StringIO
 import os
@@ -451,6 +451,155 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.updater.commit_setup(), "committed")
         self.assertFalse(self.updater.fresh_path.exists())
 
+    def begin_partial(self, files=None, *, receipts=False, owner_proof=True):
+        self.files.location = "qa-fresh-volume"
+        self.files.transaction_root = self.app
+        self.files.bind_install_root = True
+        generated = self.app.parent / "reader-uninstaller.generated"
+        generated.write_bytes(b"exact-generated-remover")
+        self.updater.begin_setup(generated if owner_proof else None)
+        populate(self.app, {p.APP: TARGET[p.APP]} if files is None else files)
+        if receipts:
+            populate(self.app, {"Uninstall.exe": generated.read_bytes(),
+                                "uninstaller.copy": generated.read_bytes()})
+        return generated
+
+    def test_fresh_partial_app_and_runtime_cleanup_then_reinstall(self):
+        subset = {name: TARGET[name] for name in (p.APP, "_internal/runtime.dll")}
+        generated = self.begin_partial(subset)
+        populate(self.app, {"_installation-records/note.txt": b"preserve-record", "user.txt": b"preserve-user"})
+        self.assertEqual(self.updater.status(), "fresh_recovery_available")
+        self.assertEqual(run_action(SimpleNamespace(action="guard"), self.catalogue, self.files),
+                         ("fresh_recovery_available", 13))
+        self.assertEqual(self.updater.recover_fresh(), "fresh_recovered")
+        self.assertFalse(self.updater.fresh_path.exists())
+        for name in subset:
+            self.assertFalse((self.app / name).exists())
+        self.assertEqual((self.app / "user.txt").read_bytes(), b"preserve-user")
+        self.assertEqual((self.app / "_installation-records/note.txt").read_bytes(), b"preserve-record")
+        self.assertEqual(self.updater.status(), "fresh")
+        self.updater.begin_setup(generated)
+        populate(self.app, TARGET)
+        populate(self.app, {"Uninstall.exe": generated.read_bytes(), "uninstaller.copy": generated.read_bytes()})
+        self.assertEqual(self.updater.commit_setup(), "committed")
+        self.assertEqual(self.updater.status(), "current")
+
+    def test_fresh_partial_owner_receipts_require_recorded_generated_hash(self):
+        self.begin_partial(receipts=True)
+        self.assertEqual(self.updater.status(), "fresh_recovery_available")
+        self.updater.recover_fresh()
+        self.assertFalse((self.app / "Uninstall.exe").exists())
+        self.assertFalse((self.app / "uninstaller.copy").exists())
+
+    def test_fresh_legacy_record_can_clean_payload_but_cannot_claim_owner_files(self):
+        self.begin_partial(owner_proof=False, receipts=True)
+        with self.refused("FRESH_RECOVERY_OWNER_PROOF_MISSING"):
+            self.updater.recover_fresh()
+        self.assertEqual((self.app / p.APP).read_bytes(), TARGET[p.APP])
+        (self.app / "Uninstall.exe").unlink()
+        (self.app / "uninstaller.copy").unlink()
+        self.assertEqual(self.updater.recover_fresh(), "fresh_recovered")
+
+    def test_fresh_changed_payload_or_receipt_means_zero_deletions(self):
+        self.begin_partial(receipts=True)
+        for name in (p.APP, "uninstaller.copy"):
+            path = self.app / name
+            original = path.read_bytes()
+            path.write_bytes(b"unknown-change")
+            with patch.object(self.files, "remove_owned") as remove:
+                with self.refused("FRESH_RECOVERY_FILE_CHANGED"):
+                    self.updater.recover_fresh()
+                remove.assert_not_called()
+            self.assertTrue(self.updater.fresh_path.exists())
+            path.write_bytes(original)
+
+    def test_fresh_unknown_loader_or_runtime_member_preserved_without_deletions(self):
+        self.begin_partial()
+        for rel in ("unowned.dll", "_internal/unowned.data"):
+            populate(self.app, {rel: b"unowned-data"})
+            with patch.object(self.files, "remove_owned") as remove:
+                with self.refused("UNEXPECTED_RUNTIME_FILE"):
+                    self.updater.recover_fresh()
+                remove.assert_not_called()
+            self.assertEqual((self.app / rel).read_bytes(), b"unowned-data")
+            (self.app / rel).unlink()
+
+    def test_fresh_unproven_owner_link_receipt_is_preserved(self):
+        self.begin_partial()
+        populate(self.app, {"start-link.copy": b"unknown-shortcut"})
+        with patch.object(self.files, "remove_owned") as remove:
+            with self.refused("FRESH_RECOVERY_UNEXPECTED_OWNER_FILE"):
+                self.updater.recover_fresh()
+            remove.assert_not_called()
+
+    def test_fresh_foreign_registration_and_running_app_refuse_without_deletions(self):
+        self.begin_partial()
+        with patch.object(self.files, "fresh_registration_absent", return_value=False):
+            with self.refused("FRESH_RECOVERY_REGISTRATION_PRESENT"):
+                self.updater.recover_fresh()
+        self.files.running = True
+        with self.refused("READER_RUNNING_CLOSE_NORMALLY"):
+            self.updater.recover_fresh()
+        self.assertTrue((self.app / p.APP).exists())
+
+    def test_fresh_wrong_root_volume_state_or_catalogue_refuses(self):
+        self.begin_partial()
+        for root, volume in ((self.app.parent / "different-root", self.files.location),
+                             (self.app, "different-volume")):
+            wrong = TestOperations(root, self.control, transaction_root=root, location=volume)
+            wrong.bind_install_root = True
+            with self.refused("INTERRUPTED_UPDATE_REQUIRES_SAME_INSTALLATION"):
+                Updater(self.catalogue, wrong).recover_fresh()
+        self.state(BASE_ID)
+        with self.refused("RECOVERY_STATE_CHANGED"):
+            self.updater.recover_fresh()
+        self.updater.state_path.unlink()
+        with self.refused("INTERRUPTED_UPDATE_REQUIRES_SAME_UPDATER"):
+            Updater(catalogue(old=True), self.files).recover_fresh()
+        self.assertTrue((self.app / p.APP).exists())
+
+    def test_fresh_highwater_and_other_journal_are_never_deleted(self):
+        self.begin_partial()
+        future = dict(self.catalogue.target.state.as_json(), sequence=2027112401)
+        self.files.write_record(self.updater.state_path, future)
+        with self.refused("DOWNGRADE_BLOCKED"):
+            self.updater.recover_fresh()
+        self.updater.state_path.unlink()
+        self.files.write_record(self.updater.journal_path, {"protected": "journal"})
+        with self.refused("INTERRUPTED_UPDATE_REQUIRES_SAME_UPDATER"):
+            self.updater.recover_fresh()
+        self.assertTrue(self.updater.journal_path.exists())
+        self.assertTrue(self.updater.fresh_path.exists())
+
+    def test_fresh_cleanup_crash_can_repeat_and_clears_marker_last(self):
+        self.begin_partial({name: data for name, data in TARGET.items()}, receipts=True)
+        calls = []
+        def crash(phase):
+            calls.append(phase)
+            raise PowerLoss()
+        actor = Updater(self.catalogue, self.files, crash)
+        with self.assertRaises(PowerLoss):
+            actor.recover_fresh()
+        self.assertEqual(calls, ["fresh_member_removed"])
+        self.assertTrue(self.updater.fresh_path.exists())
+        self.assertEqual(self.updater.recover_fresh(), "fresh_recovered")
+        self.assertFalse(self.updater.fresh_path.exists())
+
+    def test_fresh_completed_commit_path_is_kept_and_wrong_owner_cannot_commit(self):
+        self.begin_partial(TARGET, receipts=True)
+        self.assertEqual(self.updater.status(), "adopt_current")
+        (self.app / "Uninstall.exe").write_bytes(b"another-paired-owner")
+        (self.app / "uninstaller.copy").write_bytes(b"another-paired-owner")
+        with self.refused("UNINSTALLER_OWNERSHIP_MISMATCH"):
+            self.updater.commit_setup()
+        self.assertTrue(self.updater.fresh_path.exists())
+
+    def test_fresh_empty_old_marker_is_upgraded_before_copy(self):
+        generated = self.begin_partial({}, owner_proof=False)
+        self.updater.begin_setup(generated)
+        row = p.parse_json(self.updater.fresh_path.read_bytes())
+        self.assertEqual(row["uninstaller_sha256"], sha(generated.read_bytes()))
+
     def relocated(self, location="fixed-qa-volume-a"):
         self.files = TestOperations(self.app, self.control, transaction_root=self.app, location=location)
         self.updater = Updater(self.catalogue, self.files)
@@ -495,6 +644,38 @@ class EngineTests(unittest.TestCase):
         with self.refused("INTERRUPTED_UPDATE_REQUIRES_SAME_INSTALLATION"):
             self.updater.status()
         self.assertTrue(self.updater.fresh_path.exists())
+
+    def test_general_root_scope_blocks_same_volume_other_folder_recovery(self):
+        self.install()
+        self.relocated()
+        self.files.bind_install_root = True
+        self.crash("after_replace")
+        row = p.parse_json(self.updater.journal_path.read_bytes())
+        self.assertEqual(row["schema"], 3)
+        self.assertEqual(row["install_root"], str(self.app))
+        wrong = TestOperations(self.app.parent / "another", self.control,
+                               transaction_root=self.app.parent / "another", location=self.files.location)
+        wrong.bind_install_root = True
+        with self.refused("INTERRUPTED_UPDATE_REQUIRES_SAME_INSTALLATION"):
+            Updater(self.catalogue, wrong).recover(None)
+        self.assertTrue(self.updater.recover(None))
+        self.assert_payload(BASE)
+
+    def test_general_fresh_root_is_created_only_by_begin_and_records_survive(self):
+        self.app = self.app.parent / "설치 프로그램" / "채씨 리더"
+        self.files = TestOperations(self.app, self.control, transaction_root=self.app, location="qa-volume")
+        self.files.bind_install_root = True
+        self.updater = Updater(self.catalogue, self.files)
+        self.assertEqual(self.updater.status(), "fresh")
+        self.assertFalse(self.app.exists())
+        self.assertEqual(self.updater.begin_setup(), "fresh_setup_begun")
+        self.assertTrue(self.app.is_dir())
+        populate(self.app, TARGET)
+        populate(self.app, {"Uninstall.exe": b"owner proof", "uninstaller.copy": b"owner proof",
+                            "_installation-records/note.txt": b"preserve record"})
+        self.assertEqual(self.updater.commit_setup(), "committed")
+        self.assertEqual(self.updater.uninstall_guard(), "uninstall_allowed")
+        self.assertEqual((self.app / "_installation-records/note.txt").read_bytes(), b"preserve record")
 
     def test_pending_relocation_blocks_ordinary_guard_and_remover(self):
         self.install()
@@ -589,6 +770,122 @@ class PolicyTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == "nt", "requires Windows ReplaceFileW")
 class NativePrimitiveTests(unittest.TestCase):
+    def test_fresh_leaf_acl_is_rechecked_while_ancestor_pins_block_replacement(self):
+        import ctypes
+        from ctypes import wintypes as w
+        from bundle import preset_library as library, transfer_registry as registry
+
+        class NativeFreshOperations(WindowsOperations):
+            has_registration = FileOperations.has_registration
+            fresh_registration_absent = FileOperations.fresh_registration_absent
+
+            def verify_mount(self):
+                return self.location
+
+            def ensure_closed(self):
+                pass
+
+        with tempfile.TemporaryDirectory(prefix="reader-native-root-recheck-") as temp:
+            root = Path(temp)
+            files = NativeFreshOperations(root / "product", root / "control",
+                                          transaction_root=root / "product", location="native-fixture-volume")
+            files.bind_install_root = True
+            files.make_dir(files.control)
+            owner = root / "reader-uninstaller.generated"
+            owner.write_bytes(b"generated remover proof")
+            updater = Updater(catalogue(), files)
+            updater.begin_setup(owner)
+            security = registry.WindowsSecurity()
+            user = next(sid for sid in security.trusted if sid not in ("S-1-5-18", "S-1-5-32-544"))
+            advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+            convert = registry._api(advapi, "ConvertStringSecurityDescriptorToSecurityDescriptorW",
+                                    w.BOOL, w.LPCWSTR, w.DWORD, ctypes.c_void_p, ctypes.c_void_p)
+            set_acl = registry._api(advapi, "SetFileSecurityW", w.BOOL, w.LPCWSTR, w.DWORD, ctypes.c_void_p)
+            descriptor = ctypes.c_void_p()
+            sddl = f"D:P(A;;FA;;;SY)(A;;FA;;;{user})(A;;FA;;;AU)"
+            if not convert(sddl, 1, ctypes.byref(descriptor), None):
+                raise ctypes.WinError(ctypes.get_last_error())
+            try:
+                if not set_acl(str(files.install), 0x80000004, descriptor):
+                    raise ctypes.WinError(ctypes.get_last_error())
+            finally:
+                security.free(descriptor)
+            with ExitStack() as pins:
+                # Same no-delete-sharing ancestor/root lifetime as NSIS PinChain.
+                import re
+                guard_source = (Path(__file__).resolve().parents[1] / "guards.nsh").read_text(encoding="utf-8")
+                access, sharing = re.search(r"CreateFileW\(w R0, i (0x[0-9a-fA-F]+), i ([0-9]+),", guard_source).groups()
+                access, sharing = int(access, 16), int(sharing)
+                self.assertTrue(access & 1, "attribute-only handles do not block Windows directory rename")
+                for folder in (*reversed(files.install.parents), files.install):
+                    handle = security.open(str(folder), access, sharing, None, 3, 0x02200000, None)
+                    if handle == ctypes.c_void_p(-1).value:
+                        raise ctypes.WinError(ctypes.get_last_error())
+                    pins.callback(security.close, handle)
+                with self.assertRaises(p.Refusal) as refusal:
+                    updater.begin_setup(owner)
+                self.assertEqual(refusal.exception.code, "INSTALL_ROOT_ACL_REFUSED")
+                self.assertFalse((files.install / p.APP).exists())
+                self.assertTrue(updater.fresh_path.is_file())
+                with library._private_attributes() as attrs:
+                    if not set_acl(str(files.install), 0x80000004, attrs.descriptor):
+                        raise ctypes.WinError(ctypes.get_last_error())
+                self.assertEqual(updater.begin_setup(owner), "fresh_setup_begun")
+                with self.assertRaises(OSError) as refusal:
+                    files.install.rename(root / "unexpected-move")
+                self.assertIn(refusal.exception.winerror, (5, 32))
+
+    def test_native_exact_fresh_recovery_preserves_changed_files_and_user_records(self):
+        class NativeFreshOperations(WindowsOperations):
+            has_registration = FileOperations.has_registration
+            fresh_registration_absent = FileOperations.fresh_registration_absent
+
+            def verify_mount(self):
+                return self.location
+
+            def ensure_closed(self):
+                pass
+
+            def health(self):
+                pass
+
+        with tempfile.TemporaryDirectory(prefix="reader-native-fresh-") as temp:
+            root = Path(temp)
+            install, control = root / "설치 프로그램" / "채씨 리더", root / "private"
+            files = NativeFreshOperations(install, control, transaction_root=install,
+                                          location="native-fixture-volume")
+            files.bind_install_root = True
+            files.make_dir(control)
+            updater = Updater(catalogue(), files)
+            owner = root / "reader-uninstaller.generated"
+            owner.write_bytes(b"fresh generated remover")
+            with files.lock():
+                updater.begin_setup(owner)
+            files.ensure_payload_directory(install / "_internal")
+            populate(install, {p.APP: TARGET[p.APP], "_internal/runtime.dll": TARGET["_internal/runtime.dll"],
+                               "_installation-records/note.txt": b"preserve user record"})
+            self.assertEqual(updater.status(), "fresh_recovery_available")
+            (install / p.APP).write_bytes(b"changed outside installer")
+            with files.lock(), self.assertRaises(p.Refusal) as refusal:
+                updater.recover_fresh()
+            self.assertEqual(refusal.exception.code, "FRESH_RECOVERY_FILE_CHANGED")
+            self.assertEqual((install / "_internal/runtime.dll").read_bytes(), TARGET["_internal/runtime.dll"])
+            self.assertTrue(updater.fresh_path.is_file())
+            (install / p.APP).write_bytes(TARGET[p.APP])
+            with files.lock():
+                self.assertEqual(updater.recover_fresh(), "fresh_recovered")
+            self.assertFalse((install / p.APP).exists())
+            self.assertFalse((install / "_internal/runtime.dll").exists())
+            self.assertFalse(updater.fresh_path.exists())
+            self.assertEqual((install / "_installation-records/note.txt").read_bytes(), b"preserve user record")
+            with files.lock():
+                self.assertEqual(updater.begin_setup(owner), "fresh_setup_begun")
+            populate(install, TARGET)
+            populate(install, {"Uninstall.exe": owner.read_bytes(), "uninstaller.copy": owner.read_bytes()})
+            with files.lock():
+                self.assertEqual(updater.commit_setup(), "committed")
+            self.assertEqual(updater.read_state(), updater.catalogue.target.state)
+
     def test_native_additive_full_upgrade_and_health_failure_rollback(self):
         class NativeOperations(WindowsOperations):
             has_registration = FileOperations.has_registration

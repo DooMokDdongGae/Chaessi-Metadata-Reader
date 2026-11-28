@@ -111,6 +111,8 @@
 !packaging/tests/
 !packaging/tests/test_update*.py
 !packaging/tests/test_patch_bootstrap.py
+!packaging/tests/test_install_location.py
+!packaging/tests/test_release_catalogue.py
 !packaging/requirements-build.txt
 !release-docs/
 !release-docs/README.ko.md

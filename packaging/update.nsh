@@ -27,7 +27,7 @@ Var UpdateMode
 
 !macro RunUpdater ARGS
   ClearErrors
-  ExecWait '"$PLUGINSDIR\chaessi-update.exe" ${ARGS}' $UpdateExit
+  ExecWait '"$PLUGINSDIR\chaessi-update.exe" --install-root "$INSTDIR" ${ARGS}' $UpdateExit
   IfErrors 0 +4
   !insertmacro Stop
 !macroend

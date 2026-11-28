@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory)][string]$Manifest,
-    [string]$InstallRoot = 'D:\MApp\Chaessi Reader'
+    [Parameter(Mandatory)][string]$InstallRoot
 )
 $ErrorActionPreference = 'Stop'
 $inventory = Get-Content -Raw -LiteralPath $Manifest -Encoding UTF8 | ConvertFrom-Json

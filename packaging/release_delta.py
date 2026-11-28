@@ -7,9 +7,11 @@ import re
 
 
 APP_EXE = "ChaessiMetadataReader.exe"
-APP_VERSION = "1.1.0"
-TARGET_ID = "reader-20261126-01-public"
-TARGET_SEQUENCE = 2026112601
+APP_VERSION = "1.1.1"
+TARGET_ID = "reader-20261128-01-public"
+TARGET_SEQUENCE = 2026112801
+V110_BASELINE = ("reader-20261126-01-public", 2026112601,
+                 "595785f544625c4711f30755c9b098ae6dee2d63463ee2b4bfc21fe4f7d3f4a9")
 RELOCATION_BASELINE = ("reader-20261125-02-d-relocation", 2026112502,
                        "f7bf31977be5f90c0d2d15859c859e4961accf3fe1c8c23e5d523eb905d359dc")
 V101_BASELINE = ("reader-20261125-01", 2026112501,
@@ -55,9 +57,10 @@ def read_approved(path, identity):
     return {"id": build_id, "sequence": sequence, "payload": validate_payload(value["payload"])}
 
 
-def catalogue(target, baseline, nov23, nov22, v101, relocation):
+def catalogue(target, baseline, nov23, nov22, v101, relocation, v110=None):
     target = {"id": TARGET_ID, "sequence": TARGET_SEQUENCE, "payload": validate_payload(target)}
-    known = [read_approved(relocation, RELOCATION_BASELINE), read_approved(v101, V101_BASELINE),
+    known = ([read_approved(v110, V110_BASELINE)] if v110 is not None else [])
+    known += [read_approved(relocation, RELOCATION_BASELINE), read_approved(v101, V101_BASELINE),
              read_approved(baseline, PUBLIC_BASELINE), read_approved(nov23, NOV23_BASELINE),
              read_approved(nov22, NOV22_BASELINE)]
     if any(not entry["payload"].keys() <= target["payload"].keys() for entry in known):

@@ -2,6 +2,8 @@
 Var Pins
 Var GuardPath
 Var ProfileBoundary
+Var InstallBoundary
+Var InstallParent
 Var ShortcutFile
 Var SavedCopy
 Var EmptyDir
@@ -48,7 +50,9 @@ FunctionEnd
 
 !macro Guards PREFIX
 Function ${PREFIX}Pin
-  System::Call 'kernel32::CreateFileW(w R0, i 0x80, i 3, p 0, i 3, i 0x02200000, p 0) p .R1'
+  ; Attribute-only opens do not enforce delete sharing on Windows. Include
+  ; FILE_LIST_DIRECTORY so a held directory cannot be renamed/replaced.
+  System::Call 'kernel32::CreateFileW(w R0, i 0x81, i 3, p 0, i 3, i 0x02200000, p 0) p .R1'
   IntCmp $R1 -1 invalid
   System::Call 'kernel32::GetFileAttributesW(w R0) i .R2'
   IntCmp $R2 -1 invalid
@@ -66,24 +70,25 @@ invalid:
 FunctionEnd
 
 Function ${PREFIX}PinChain
-!ifdef RELOCATION_D
-  StrCmp "$GuardPath" "${READER_PARENT}" readerDrive
-  StrCmp "$GuardPath" "${READER_INSTALL}" readerDrive
-  StrLen $1 "${READER_INSTALL}\"
+  ; Installation paths are validated by the updater before this guard is used.
+  ; This is a second, pinned filesystem boundary, never a trust decision from
+  ; a directory name, command-line /D value, or registry string alone.
+  StrCmp "$InstallBoundary" "" profilePath
+  StrCmp "$GuardPath" "$InstallParent" installPath
+  StrCmp "$GuardPath" "$InstallBoundary" installPath
+  StrLen $1 "$InstallBoundary\"
   StrCpy $0 "$GuardPath" $1
-  StrCmp "$0" "${READER_INSTALL}\" readerDrive
-!endif
+  StrCmp "$0" "$InstallBoundary\" installPath
+profilePath:
   StrLen $1 "$ProfileBoundary\"
   StrCpy $0 "$GuardPath" $1
   StrCmp "$0" "$ProfileBoundary\" +4
   !insertmacro Stop
   StrCpy $8 0
-!ifdef RELOCATION_D
   Goto inspectDrive
-readerDrive:
+installPath:
   StrCpy $8 1
 inspectDrive:
-!endif
   ${GetRoot} "$GuardPath" $0
   StrCpy $R0 "$0\"
   System::Call 'kernel32::GetDriveTypeW(w R0) i .r1'

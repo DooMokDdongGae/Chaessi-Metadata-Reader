@@ -177,6 +177,21 @@ class FileOperations:
             self.make_dir(path)
         policy.reject("UNSAFE_PARENT", self.kind(path) != "directory")
 
+    def prepare_install_root(self):
+        self.ensure_payload_directory(self.install)
+
+    def validate_fresh_root(self):
+        with self.pinned(self.install, directory=True):
+            pass
+
+    def fresh_registration_absent(self):
+        # Tempfile tests have no operating-system registration. Owner receipts
+        # alone are not equivalent to ARP registration during partial copying.
+        return True
+
+    def guard_lock(self):
+        return nullcontext()
+
     def prepare_displaced(self, path, expected):
         value = self.inspect(path)
         policy.reject("ROLLBACK_BLOCKED_EXTERNAL_CHANGE", value is not None and value.digest != expected)
@@ -245,12 +260,38 @@ def mounted_install_volume(anchor):
                                 ctypes.c_void_p, w.LPWSTR, w.DWORD)
     name = ctypes.create_unicode_buffer(64)
     flags = w.DWORD()
-    policy.reject("D_INSTALL_VOLUME_UNAVAILABLE", drive_type(anchor) != 3
+    policy.reject("INSTALL_VOLUME_UNAVAILABLE", drive_type(anchor) != 3
                   or not mount_name(anchor, name, len(name)))
-    policy.reject("D_INSTALL_VOLUME_REQUIRES_ACLS",
+    policy.reject("INSTALL_VOLUME_REQUIRES_ACLS",
                   not volume_info(anchor, None, 0, None, None, ctypes.byref(flags), None, 0)
                   or not flags.value & 0x8)
     return name.value.casefold()
+
+
+def registered_install_root():
+    """Return an untrusted per-user root candidate, never a deletion permit."""
+    import winreg
+
+    candidates = []
+    for view in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, ARP, 0, winreg.KEY_READ | view)
+        except FileNotFoundError:
+            continue
+        with key:
+            try:
+                root, root_type = winreg.QueryValueEx(key, "InstallLocation")
+                remove, remove_type = winreg.QueryValueEx(key, "UninstallString")
+            except FileNotFoundError:
+                raise policy.Refusal("INSTALL_LOCATION_MISMATCH") from None
+        policy.reject("INSTALL_LOCATION_MISMATCH", root_type != winreg.REG_SZ
+                      or remove_type != winreg.REG_SZ or not isinstance(root, str))
+        candidate = Path(policy.installation_path(root))
+        policy.reject("INSTALL_LOCATION_MISMATCH", remove != '"' + str(candidate / "Uninstall.exe") + '"')
+        candidates.append(candidate)
+    policy.reject("CONFLICTING_INSTALL_REGISTRATION", bool(candidates) and any(
+        root != candidates[0] for root in candidates))
+    return candidates[0] if candidates else None
 
 
 def reader_process_ids():
@@ -285,20 +326,38 @@ def reader_process_ids():
 
 class WindowsOperations(FileOperations):
     @classmethod
-    def for_user(cls, *, legacy=False):
+    def for_user(cls, *, install_root=None, legacy=False):
         policy.reject("WINDOWS_X64_REQUIRED", sys.platform != "win32" or sys.maxsize <= 2**32)
         local = known_folder("F1B32785-6FBA-4FCF-9D55-7B8E7F157091")
-        profile = known_folder("5E6C858F-0E22-4760-9AFE-EA3317B67173")
-        policy.reject("UNSUPPORTED_LOCAL_APPDATA_PATH", local != profile / "AppData" / "Local")
         control = local / "CHAESSI" / "MetadataReaderUpdate"
         if legacy:
+            policy.reject("LEGACY_INSTALL_ROOT_OVERRIDE", install_root is not None)
             return cls(local / "Programs" / "ChaessiMetadataReader", control)
-        install = Path(D_INSTALL)
-        return cls(install, control, transaction_root=install, location=mounted_install_volume(install.anchor))
+        registered = registered_install_root()
+        selected = registered if install_root is None else Path(policy.installation_path(str(install_root)))
+        install = selected if selected is not None else local / "Programs" / "ChaessiMetadataReader"
+        policy.reject("INSTALL_LOCATION_MISMATCH", registered is not None and install != registered)
+        profile = known_folder("5E6C858F-0E22-4760-9AFE-EA3317B67173")
+        windows = known_folder("F38BF404-1D43-42F2-9305-67DE0B28FC23")
+        policy.reject("UNSAFE_INSTALL_ROOT", install == Path(install.anchor)
+                      or local.is_relative_to(install) or profile.is_relative_to(install)
+                      or install.is_relative_to(windows)
+                      or install.is_relative_to(control) or control.is_relative_to(install))
+        files = cls(install, control, transaction_root=install, location=mounted_install_volume(install.anchor))
+        files.bind_install_root = True
+        # Pin the existing chain without creating folders, changing ACLs, or
+        # trusting the registry. Updater.status() still attests the full product
+        # catalogue and both uninstaller copies for an existing installation.
+        for component in (*reversed(install.parents), install):
+            if files.kind(component) is None:
+                break
+            with files.pinned(component, directory=True):
+                pass
+        return files
 
     def verify_mount(self):
         if self.location is not None:
-            policy.reject("D_INSTALL_VOLUME_CHANGED", mounted_install_volume(self.install.anchor) != self.location)
+            policy.reject("INSTALL_VOLUME_CHANGED", mounted_install_volume(self.install.anchor) != self.location)
         return self.location
 
     @contextmanager
@@ -372,6 +431,19 @@ class WindowsOperations(FileOperations):
                 finally:
                     stream.seek(0)
                     msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+
+    @contextmanager
+    def guard_lock(self):
+        """Pre-license guard may lock an existing control, never create one."""
+        if self.kind(self.control) is None:
+            yield
+            return
+        with self.pinned(self.control, directory=True):
+            if self.kind(self.control / "update.lock") is None:
+                yield
+            else:
+                with self.lock():
+                    yield
 
     def durable_replace(self, src, dst, *, overwrite=True):
         _, r = windows_api()
@@ -514,23 +586,32 @@ class WindowsOperations(FileOperations):
                 close(handle)
 
     def has_registration(self):
-        import winreg
+        root = registered_install_root()
+        policy.reject("INSTALL_LOCATION_MISMATCH", root is not None and root != self.install)
+        return root is not None
 
+    def fresh_registration_absent(self):
+        return registered_install_root() is None
+
+    def validate_fresh_root(self):
+        self.verify_mount()
+        _, registry = windows_api()
         try:
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, ARP, 0,
-                                 winreg.KEY_READ | winreg.KEY_WOW64_64KEY)
-        except FileNotFoundError:
-            return False
-        with key:
-            try:
-                location, kind_location = winreg.QueryValueEx(key, "InstallLocation")
-                uninstaller, kind_uninstaller = winreg.QueryValueEx(key, "UninstallString")
-            except FileNotFoundError:
-                raise policy.Refusal("INSTALL_LOCATION_MISMATCH") from None
-        policy.reject("INSTALL_LOCATION_MISMATCH", kind_location != winreg.REG_SZ
-                      or kind_uninstaller != winreg.REG_SZ or Path(location) != self.install
-                      or uninstaller != '"' + str(self.install / "Uninstall.exe") + '"')
-        return True
+            with registry.checked_handle(self.install, root=self.install, directory=True):
+                pass
+        except registry.TransferError as exc:
+            raise policy.Refusal("INSTALL_ROOT_ACL_REFUSED") from exc
+
+    def prepare_install_root(self):
+        super().prepare_install_root()
+        _, registry = windows_api()
+        try:
+            # Do not silently change an existing records-only folder's ACL or
+            # its children. Newly created directories already have private ACLs.
+            with registry.checked_handle(self.install, root=self.install, directory=True):
+                pass
+        except registry.TransferError as exc:
+            raise policy.Refusal("INSTALL_ROOT_ACL_REFUSED") from exc
 
     def ensure_closed(self):
         _, registry = windows_api()
@@ -593,29 +674,83 @@ class Updater:
         return None if value is None else policy.State.from_json(policy.parse_json(value))
 
     def record_scope(self):
+        if getattr(self.files, "bind_install_root", False):
+            return {"schema": 3, "volume": self.files.location, "install_root": str(self.files.install)}
         return ({"schema": 1} if self.files.location is None
                 else {"schema": 2, "volume": self.files.location})
 
     def validate_record_scope(self, row, fields, error):
         scope = self.record_scope()
         policy.reject(error, not isinstance(row, dict) or type(row.get("schema")) is not int)
+        # Before general roots were supported, schema2 belonged only to the
+        # fixed D edition. Preserve that exact interrupted-install recovery;
+        # it must never authorize another folder on the same volume.
+        if scope["schema"] == 3 and row["schema"] == 2 and self.files.install == Path(D_INSTALL):
+            scope = {"schema": 2, "volume": self.files.location}
         if any(row.get(key) != expected for key, expected in scope.items()):
             raise policy.Refusal("INTERRUPTED_UPDATE_REQUIRES_SAME_INSTALLATION", 3)
         policy.reject(error, set(row) != fields | scope.keys())
 
-    def fresh_pending(self, state):
+    def read_fresh(self, state):
         value = self.files.read(self.fresh_path, 8192)
         if value is None:
-            return False
+            return None
         row = policy.parse_json(value)
-        self.validate_record_scope(row, {"target", "state_before"}, "INVALID_FRESH_SETUP_RECORD")
+        fields = {"target", "state_before"}
+        if isinstance(row, dict) and "uninstaller_sha256" in row:
+            fields.add("uninstaller_sha256")
+            policy.reject("INVALID_FRESH_SETUP_RECORD", not policy.valid_hash(row["uninstaller_sha256"]))
+        self.validate_record_scope(row, fields, "INVALID_FRESH_SETUP_RECORD")
         target = policy.State.from_json(row["target"])
         if target != self.catalogue.target.state:
             raise policy.Refusal("INTERRUPTED_UPDATE_REQUIRES_SAME_UPDATER", 3)
         before = None if row["state_before"] is None else policy.State.from_json(row["state_before"])
         self.catalogue.check_high_water(before)
         policy.reject("RECOVERY_STATE_CHANGED", state not in (before, target))
-        return True
+        return row
+
+    def fresh_pending(self, state):
+        return self.read_fresh(state) is not None
+
+    def fresh_recovery_members(self, state):
+        """Validate the whole remaining set before deleting any single byte."""
+        row = self.read_fresh(state)
+        policy.reject("NO_FRESH_SETUP_RECORD", row is None)
+        before = None if row["state_before"] is None else policy.State.from_json(row["state_before"])
+        policy.reject("RECOVERY_STATE_CHANGED", state != before)
+        policy.reject("FRESH_RECOVERY_REGISTRATION_PRESENT", not self.files.fresh_registration_absent())
+        self.files.ensure_closed()
+        self.files.validate_fresh_root()
+        self.check_unowned_loaders(self.catalogue.target)
+        members = []
+        owned = dict(self.catalogue.target.payload)
+        for name in ("Uninstall.exe", "uninstaller.copy"):
+            if self.files.kind(self.files.install / name) is not None:
+                policy.reject("FRESH_RECOVERY_OWNER_PROOF_MISSING", "uninstaller_sha256" not in row)
+                owned[name] = row["uninstaller_sha256"]
+        for name in ("start-link.copy", "guide-link.copy", "desktop-link.copy"):
+            policy.reject("FRESH_RECOVERY_UNEXPECTED_OWNER_FILE", self.files.kind(self.files.install / name) is not None)
+        for name, expected in owned.items():
+            path = self.files.install / name
+            value = self.files.inspect(path)
+            policy.reject("FRESH_RECOVERY_FILE_CHANGED", value is not None and value.digest != expected)
+            if value is not None:
+                members.append((path, value))
+        return members
+
+    def recover_fresh(self):
+        state = self.read_state()
+        self.catalogue.check_high_water(state)
+        policy.reject("INTERRUPTED_UPDATE_REQUIRES_SAME_UPDATER", self.files.kind(self.journal_path) is not None)
+        members = self.fresh_recovery_members(state)
+        # Each native deletion revalidates identity+hash by an exclusive handle.
+        # A crash leaves the protected marker and exact remaining subset, so a
+        # repeated cleanup is safe. Directories and unrelated records survive.
+        for path, value in members:
+            self.files.remove_owned(path, value)
+            self.checkpoint("fresh_member_removed")
+        self.fresh_path.unlink()
+        return "fresh_recovered"
 
     def matches_release(self, release, *, ignore=()):
         return all(path in ignore or self.files.matches(self.files.install / path, digest)
@@ -664,7 +799,17 @@ class Updater:
         if self.files.kind(self.journal_path) is not None:
             raise policy.Refusal("INTERRUPTED_UPDATE_REQUIRES_SAME_UPDATER", 3)
         pending = self.fresh_pending(state)
-        decision = self.catalogue.decide(self.observed_release(), state)
+        try:
+            observed = self.observed_release()
+        except policy.Refusal as exc:
+            if not pending or exc.code not in ("REGISTRATION_MISSING", "UNKNOWN_OR_PARTIAL_INSTALLATION",
+                                               "UNINSTALLER_OWNERSHIP_MISMATCH"):
+                raise
+            self.fresh_recovery_members(state)
+            return "fresh_recovery_available"
+        if pending and observed is None and self.fresh_recovery_members(state):
+            return "fresh_recovery_available"
+        decision = self.catalogue.decide(observed, state)
         if decision == "current" and (pending or state != self.catalogue.target.state):
             decision = "adopt_current"
         policy.reject("FRESH_INSTALLATION_CONFLICT", pending and decision not in ("fresh", "adopt_current"))
@@ -672,12 +817,19 @@ class Updater:
             self.files.ensure_closed()
         return decision
 
-    def begin_setup(self):
+    def begin_setup(self, uninstaller=None):
         policy.reject("FRESH_SETUP_NOT_ALLOWED", self.status() != "fresh")
+        self.files.prepare_install_root()
         state = self.read_state()
-        if not self.fresh_pending(state):
-            record = {**self.record_scope(), "target": self.catalogue.target.state.as_json(),
-                      "state_before": None if state is None else state.as_json()}
+        previous = self.read_fresh(state)
+        record = previous or {**self.record_scope(), "target": self.catalogue.target.state.as_json(),
+                              "state_before": None if state is None else state.as_json()}
+        if uninstaller is not None:
+            policy.reject("INVALID_GENERATED_UNINSTALLER", uninstaller.name != "reader-uninstaller.generated")
+            owner = self.files.inspect(uninstaller)
+            policy.reject("INVALID_GENERATED_UNINSTALLER", owner is None or owner.size == 0)
+            record = {**record, "uninstaller_sha256": owner.digest}
+        if previous != record:
             self.files.write_record(self.fresh_path, record)
         return "fresh_setup_begun"
 
@@ -688,6 +840,12 @@ class Updater:
                       self.files.kind(self.journal_path) is not None)
         pending = self.fresh_pending(state)
         policy.reject("SETUP_TARGET_NOT_INSTALLED", self.observed_release() != self.catalogue.target)
+        if pending:
+            row = self.read_fresh(state)
+            if "uninstaller_sha256" in row:
+                for name in ("Uninstall.exe", "uninstaller.copy"):
+                    policy.reject("UNINSTALLER_OWNERSHIP_MISMATCH", not self.files.matches(
+                        self.files.install / name, row["uninstaller_sha256"]))
         self.files.ensure_closed()
         if self.catalogue.target.self_test:
             self.files.health()
@@ -963,6 +1121,47 @@ def load_catalogue(argument):
     return policy.Catalogue.from_json(policy.parse_json(data))
 
 
+def locate_installation(catalogue, output):
+    """Read a protected root hint; never create/alter installation or ledger."""
+    # Only the frozen helper's own NSIS plugin directory may receive this small
+    # output. It is not an arbitrary file-write facility and never overwrites.
+    expected = Path(sys.executable).parent / "install-root.txt"
+    policy.reject("INVALID_INSTALL_ROOT_OUTPUT", output != expected)
+    local = known_folder("F1B32785-6FBA-4FCF-9D55-7B8E7F157091")
+    control = local / "CHAESSI" / "MetadataReaderUpdate"
+    probe = WindowsOperations(local / "Programs" / "ChaessiMetadataReader", control)
+    registered = registered_install_root()
+    raw = probe.read(control / FRESH, 8192)
+    fresh = None if raw is None else policy.parse_json(raw)
+    candidate = registered
+    if fresh is not None:
+        policy.reject("FRESH_INSTALL_ROOT_HINT_UNAVAILABLE", not isinstance(fresh, dict)
+                      or fresh.get("schema") != 3 or type(fresh.get("schema")) is not int)
+        pending_root = Path(policy.installation_path(fresh.get("install_root")))
+        policy.reject("CONFLICTING_INSTALL_REGISTRATION", candidate is not None and candidate != pending_root)
+        candidate = pending_root
+    if candidate is None:
+        # No registered or durable fresh location: retain NSIS default or /D=.
+        return "no_installation_hint", 10
+    files = WindowsOperations.for_user(install_root=str(candidate))
+    updater = Updater(catalogue, files)
+    state = updater.read_state()
+    catalogue.check_high_water(state)
+    journal = files.read(updater.journal_path, MAX_CATALOGUE)
+    if journal is not None:
+        updater.parse_journal(journal)
+    if fresh is not None:
+        policy.reject("INTERRUPTED_UPDATE_REQUIRES_SAME_UPDATER", journal is not None)
+        updater.read_fresh(state)  # catalogue+root+volume+state binding
+    # Registry is only a location candidate, not ownership authority. guard
+    # still attests complete/partial file ownership after NSIS selects the root.
+    with files.pinned(output.parent, directory=True), files.make_file(output) as stream:
+        stream.write(str(candidate).encode("utf-16-le"))
+        stream.flush()
+        os.fsync(stream.fileno())
+    return "installation_hint", 0
+
+
 def run_action(args, catalogue, files):
     if args.action in ("relocate-guard", "relocate"):
         # The independent C-to-D coordinator cannot retain the normal update
@@ -986,14 +1185,20 @@ def run_action(args, catalogue, files):
                                   operation=args.operation), 0
 
     updater = Updater(catalogue, files)
-    with files.lock():
+    with (files.guard_lock() if args.action == "guard" else files.lock()):
         if files.kind(files.control / RELOCATION_JOURNAL) is not None:
             raise policy.Refusal("RELOCATION_REQUIRES_SAME_SETUP", 5)
         if args.action == "guard":
             observed = updater.status()
-            return observed, {"fresh": 0, "current": 10, "adopt_current": 12}.get(observed, 11)
+            return observed, {"fresh": 0, "current": 10, "adopt_current": 12,
+                              "fresh_recovery_available": 13}.get(observed, 11)
         if args.action == "setup-begin":
-            return updater.begin_setup(), 0
+            uninstaller = getattr(args, "uninstaller", None)
+            if uninstaller is not None:
+                policy.reject("INVALID_GENERATED_UNINSTALLER", uninstaller != Path(sys.executable).parent / "reader-uninstaller.generated")
+            return updater.begin_setup(uninstaller), 0
+        if args.action == "fresh-recover":
+            return updater.recover_fresh(), 0
         if args.action == "setup-commit":
             return updater.commit_setup(), 0
         if args.action == "uninstall-guard":
@@ -1007,9 +1212,14 @@ def run_action(args, catalogue, files):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalogue", type=Path)
+    parser.add_argument("--install-root", type=str)
     sub = parser.add_subparsers(dest="action", required=True)
-    for action in ("guard", "setup-begin", "setup-commit", "uninstall-guard", "relocate-guard"):
+    for action in ("guard", "fresh-recover", "setup-commit", "uninstall-guard", "relocate-guard"):
         sub.add_parser(action)
+    begin = sub.add_parser("setup-begin")
+    begin.add_argument("--uninstaller", type=Path, required=True)
+    locate = sub.add_parser("locate-installation")
+    locate.add_argument("--output", type=Path, required=True)
     for action in ("patch", "setup-apply"):
         command = sub.add_parser(action)
         command.add_argument("--payload", required=True, type=Path)
@@ -1031,8 +1241,12 @@ def main(argv=None):
     try:
         policy.reject("PACKAGED_UPDATER_REQUIRED", not getattr(sys, "frozen", False))
         catalogue = load_catalogue(args.catalogue)
-        files = WindowsOperations.for_user()
-        observed, code = run_action(args, catalogue, files)
+        if args.action == "locate-installation":
+            policy.reject("INSTALL_ROOT_NOT_ALLOWED_FOR_LOCATE", args.install_root is not None)
+            observed, code = locate_installation(catalogue, args.output)
+        else:
+            files = WindowsOperations.for_user(install_root=args.install_root)
+            observed, code = run_action(args, catalogue, files)
     except policy.Refusal as exc:
         observed, code = exc.code, exc.exit_code
     except (OSError, ValueError, RuntimeError) as exc:

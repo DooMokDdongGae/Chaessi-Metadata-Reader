@@ -1,18 +1,18 @@
-# CHAESSI Metadata Reader 1.1.0
+# CHAESSI Metadata Reader 1.1.1 source
 
 Windows x64 tool for importing and editing image prompts, with an original-text view and authenticated transfer to CHAESSI PRESET. Independent of NovelAI.
 
 [한국어](release-docs/README.ko.md) · [English](release-docs/README.en.md) · [日本語](release-docs/README.ja.md) · [Official downloads](https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/latest)
 
-One Setup installs or updates supported official builds at D:\MApp\Chaessi Reader. Reuse a paired Chrome extension0.3.1. A first extension installation and NovelAI Inspect permission are performed by the user. Keep pairing keys in the local app/extension, never in AI chats, screenshots or logs.
+Use one Setup for fresh per-user installation at `%LOCALAPPDATA%\Programs\ChaessiMetadataReader`, safe selectable local paths (spaces/Unicode/other drives), and in-place updates retaining a verified existing root. Public build `reader-20261128-01-public`, sequence `2026112801`, is prepared for the [official 1.1.1 release](https://github.com/DooMokDdongGae/Chaessi-Metadata-Reader/releases/tag/v1.1.1). Reuse a paired Chrome extension 0.3.1 with its existing folder, profile and pairing. Only a first extension installation and NovelAI Inspect permission require initial setup. Keep pairing keys in local app/extension fields, never AI chats, screenshots or logs.
 
-Reader1.1.0 verifies official publisher key sets and signed Preset inventories with SDK Ed25519, validity/revocation/high-water rules and actual Windows file/process/socket identity. The protocol remains chaessi.prompt-transfer/1, with preview, user apply/cancel and Undo. The exact supported official PUBLIC Preset3.8.5 remains compatible. Future signed Presets use the same published chain and complete sidecars without requiring Reader changes for every release. Protocol or root changes need separate compatibility handling.
+Reader 1.1.1 verifies official publisher key sets and signed Preset inventories with SDK Ed25519, validity/revocation/high-water rules and actual Windows file/process/socket identity. The protocol remains chaessi.prompt-transfer/1, with preview, user apply/cancel and Undo. The exact corrected 2026-11-23 official PUBLIC Preset 3.8.5 remains compatible. Official Preset 3.9.1 is prepared in parallel as a separate ZIP with its stable EXE and four signature/manifest files together. Signed releases must satisfy the published trust chain and protocol; compatibility with every future version is not promised. Protocol or root changes need separate compatibility handling.
 
-Full resource verification can take seconds to tens of seconds. A cold Portable can become ready after bounded discovery ends; retry after its window is ready. The latest conversion did not repeat the complete online Chrome/Inspect workflow. Release notes separate reused and new evidence.
+Full resource verification can take seconds to tens of seconds. A cold Portable can become ready after bounded discovery ends; retry after its window is ready. This conversion reuses the verified private03 installation lifecycle and PNG evidence; it does not repeat the complete online Chrome/Inspect workflow or claim all-PC testing. Release notes separate reused evidence, final-pair validation and known limitations, including unavailable original provider PNG samples and unobserved native busy timing.
 
 ## Source and build
 
-The public source is a reviewed file export, with no PRIVATE Git history, signing private keys, user profiles, pairing keys, original user prompts/images or internal QA artifacts. Public verification anchors are intentionally public. Rights in original code remain with their respective rights holders; third-party terms apply to their components.
+This public source is a reviewed product-file export over existing PUBLIC history, with no PRIVATE Git history, signing private keys, user profiles, pairing keys, original user prompts/images or internal QA artifacts. Public verification anchors are intentionally public. Rights in original code remain with their respective rights holders; third-party terms apply to their components.
 
 [Build instructions](packaging/README.md) describe pinned Windows CPython, PyInstaller, SDK and NSIS inputs. [Third-party notices](release-docs/THIRD-PARTY-NOTICES.md) contain original licenses and dependency inventories. The installed app and primary Chrome collection path need no Node.js or separately installed Python.
 
